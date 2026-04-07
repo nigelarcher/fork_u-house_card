@@ -114,34 +114,26 @@ class ForkUHouseCard extends HTMLElement {
   
     static getStubConfig() {
       return {
-        language: "pl",
+        language: "en",
         image: "/local/community/fork_u-house_card/images/",
 
         // Entities
         weather_entity: "weather.forecast_home",
         season_entity: "sensor.season",
         sun_entity: "sun.sun",
-        cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
+        cloud_coverage_entity: "sensor.home_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",  // enables gaming ambient
-        gaming_image: "synthwave",  // gaming image theme: synthwave, cyberpunk, matrix, mario
+        gaming_image: "synthwave",  // gaming image theme: synthwave, cyberpunk, matrix, mario, xbox_kid
 
-        // Themed Days
-        xmas_style: "australian",  // "traditional" (winter/snowy) or "australian" (summer)
-        birthdays: [
-          { name: "boy_bday", date: "02-13" },
-          { name: "boy_bday", date: "04-20" },
-          { name: "boy_bday", date: "12-26" },
-          { name: "girl_bday", date: "02-05" },
-          { name: "girl_bday", date: "06-27" },
-          //{ name: "girl_bday", date: "12-23" },
-        ],
+        // Themed Days - configure birthdays in your dashboard YAML
+        // birthdays: [{ name: "boy_bday", date: "03-15" }, { name: "girl_bday", date: "07-22" }],
 
         // AI Sensors
-        aqi_entity: "sensor.waqi_pm2_5",
-        pollen_entity: "sensor.pollen_level", // Returns: 'High', 'Moderate', or number
-        uv_entity: "sensor.uv_index",
-        wind_speed_entity: "sensor.wind_speed",
-        wind_direction_entity: "sensor.wind_bearing",
+        aqi_entity: "beresfield_lower_hunter_pm2_5",
+        pollen_entity: "sensor.home_pollen_types_32_753374151_625700_grass",
+        uv_entity: "sensor.home_uv_index",
+        wind_speed_entity: "sensor.home_wind_speed",
+        wind_direction_entity: "sensor.home_wind_direction",
 
         rooms: [{ name: "Salon", entity: "sensor.salon_temp", x: 50, y: 50, weight: 1 }]
       };
@@ -220,7 +212,19 @@ class ForkUHouseCard extends HTMLElement {
             return `${path}gaming_${this._config.gaming_image}.png`;
         }
 
-        // --- PRIORITY 2: Birthdays (hardcoded dates, ±0 days = exact match) ---
+        // --- PRIORITY 2: Christmas Calendar (Dec 1 - Dec 26) ---
+        // Full month of xmas! Each day has a unique scene: xmas_dec{day}_{time}.png
+        // Even days = traditional winter, odd days = australian summer
+        // Dec 23 combines girl_bday + xmas. Falls back to generic xmas images.
+        if (month === 12 && day >= 1 && day <= 26) {
+            const adventImage = `${path}xmas_dec${day}_${timeOfDay}.png`;
+            this._xmasFallback = day % 2 !== 0
+                ? `${path}xmas_australian_${timeOfDay}.png`
+                : `${path}xmas_${timeOfDay}.png`;
+            return adventImage;
+        }
+
+        // --- PRIORITY 3: Birthdays (hardcoded dates, exact match) ---
         const birthdays = this._config.birthdays || [];
         for (const bday of birthdays) {
             if (bday.date === mmdd) {
@@ -229,7 +233,7 @@ class ForkUHouseCard extends HTMLElement {
             }
         }
 
-        // --- PRIORITY 3: Themed Days by date ---
+        // --- PRIORITY 4: Themed Days by date ---
 
         // New Years Eve & Day (Dec 31 - Jan 1)
         if ((month === 12 && day === 31) || (month === 1 && day === 1)) {
@@ -262,21 +266,11 @@ class ForkUHouseCard extends HTMLElement {
             return `${path}halloween_${timeOfDay}.png`;
         }
 
-        // Christmas (Dec 14 - Dec 25, excluding New Years & Australia Day handled above)
-        // Alternates daily: even days = traditional (white xmas), odd days = australian
-        if (month === 12 && day >= 14 && day <= 25) {
-            const isAustralian = day % 2 !== 0;
-            if (isAustralian) {
-                return `${path}xmas_australian_${timeOfDay}.png`;
-            }
-            return `${path}xmas_${timeOfDay}.png`;
-        }
-
-        // --- PRIORITY 4: Xbox Kid (themed day, no date - config driven) ---
+        // --- PRIORITY 5: Xbox Kid (themed day, no date - config driven) ---
         // Can be triggered via a HA entity if desired
         // TODO: future - calendar integration
 
-        // --- PRIORITY 5: Weather variants ---
+        // --- PRIORITY 6: Weather variants ---
         const wStateRaw = this._hass.states[this._config.weather_entity]?.state;
         let weatherSuffix = null;
 
@@ -303,7 +297,7 @@ class ForkUHouseCard extends HTMLElement {
             }
         }
 
-        // --- PRIORITY 6: Season fallback ---
+        // --- PRIORITY 7: Season fallback ---
         return `${path}${season}_${timeOfDay}.png`;
     }
 
@@ -311,16 +305,21 @@ class ForkUHouseCard extends HTMLElement {
     _updateData() {
       if (!this._hass || !this.shadowRoot.querySelector('.card')) return;
 
-      // --- AKTUALIZACJA TŁA (DYNAMICZNA) ---
+      // --- DYNAMIC BACKGROUND UPDATE ---
       const newImage = this._calculateImage();
-      // Sprawdzamy czy obrazek się zmienił, żeby nie mrugało
       if (this._currentImageUrl !== newImage) {
           this._currentImageUrl = newImage;
           const bgEl = this.shadowRoot.querySelector('.bg-image');
           if (bgEl) {
-              // Preload obrazka
               const img = new Image();
               img.onload = () => { bgEl.style.backgroundImage = `url('${newImage}')`; };
+              img.onerror = () => {
+                  // Fallback: if day-specific xmas image missing, use generic
+                  if (this._xmasFallback) {
+                      bgEl.style.backgroundImage = `url('${this._xmasFallback}')`;
+                      this._xmasFallback = null;
+                  }
+              };
               img.src = newImage;
           }
       }

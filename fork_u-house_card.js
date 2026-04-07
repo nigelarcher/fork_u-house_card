@@ -128,8 +128,12 @@ class ForkUHouseCard extends HTMLElement {
         // Themed Days
         xmas_style: "australian",  // "traditional" (winter/snowy) or "australian" (summer)
         birthdays: [
-          // { name: "alex_bday", date: "03-15" },
-          // { name: "girl_bday", date: "07-22" },
+          { name: "boy_bday", date: "02-13" },
+          { name: "boy_bday", date: "04-20" },
+          { name: "boy_bday", date: "12-26" },
+          { name: "girl_bday", date: "02-05" },
+          { name: "girl_bday", date: "06-27" },
+          //{ name: "girl_bday", date: "12-23" },
         ],
 
         // AI Sensors

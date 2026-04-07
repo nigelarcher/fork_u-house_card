@@ -116,16 +116,24 @@ class ForkUHouseCard extends HTMLElement {
       return {
         language: "pl",
         image: "/local/community/fork_u-house_card/images/",
-        
+
         // Entities
         weather_entity: "weather.forecast_home",
         season_entity: "sensor.season",
         sun_entity: "sun.sun",
         cloud_coverage_entity: "sensor.openweathermap_cloud_coverage",
         party_mode_entity: "input_boolean.gaming_mode",  // enables gaming ambient
-        
+        gaming_image: "synthwave",  // gaming image theme: synthwave, cyberpunk, matrix, mario
+
+        // Themed Days
+        xmas_style: "australian",  // "traditional" (winter/snowy) or "australian" (summer)
+        birthdays: [
+          // { name: "alex_bday", date: "03-15" },
+          // { name: "girl_bday", date: "07-22" },
+        ],
+
         // AI Sensors
-        aqi_entity: "sensor.waqi_pm2_5", 
+        aqi_entity: "sensor.waqi_pm2_5",
         pollen_entity: "sensor.pollen_level", // Returns: 'High', 'Moderate', or number
         uv_entity: "sensor.uv_index",
         wind_speed_entity: "sensor.wind_speed",
@@ -168,36 +176,108 @@ class ForkUHouseCard extends HTMLElement {
       if (this._animationFrame) cancelAnimationFrame(this._animationFrame);
     }
 
-     // --- NOWA LOGIKA WYBORU OBRAZKA ---
+    // --- IMAGE SELECTION LOGIC ---
+    // Priority: Gaming > Birthdays > Themed Days (by date) > Weather > Season fallback
+
+    _getNthSundayOfMonth(year, month, n) {
+        // Returns the date of the nth Sunday in a given month (1-indexed)
+        const d = new Date(year, month - 1, 1);
+        let count = 0;
+        while (count < n) {
+            if (d.getDay() === 0) count++;
+            if (count < n) d.setDate(d.getDate() + 1);
+        }
+        return d.getDate();
+    }
+
     _calculateImage() {
         const path = this._config.image_path || "/local/community/fork_u-house_card/images/";
-        
-        // 1. Pora Dnia
+
+        // 1. Time of Day
         const sunState = this._hass.states[this._config.sun_entity || 'sun.sun']?.state || 'above_horizon';
         const timeOfDay = sunState === 'below_horizon' ? 'night' : 'day';
 
-        // 2. Święta (Xmas Priority)
-        const now = new Date();
-        const month = now.getMonth() + 1;
-        const day = now.getDate();
-        if ((month === 12 && day >= 14) || (month === 1 && day <= 14)) {
-            return `${path}winter_xmas_${timeOfDay}.png`;
-        }
-
-        // 3. Sezon
+        // 2. Season (needed by multiple checks below)
         let season = this._hass.states[this._config.season_entity]?.state || 'summer';
         const seasonMap = { 'wiosna': 'spring', 'lato': 'summer', 'jesień': 'autumn', 'zima': 'winter' };
         if (seasonMap[season]) season = seasonMap[season];
         season = season.toLowerCase();
 
-        // 4. Ścisłe Mapowanie Pogody (Strict Mapping)
+        const now = new Date();
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
+        const year = now.getFullYear();
+        const mmdd = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+        // --- PRIORITY 1: Gaming Mode ---
+        const partyEntity = this._config.party_mode_entity;
+        const isGaming = partyEntity && this._hass.states[partyEntity]?.state === 'on';
+        if (isGaming && this._config.gaming_image) {
+            return `${path}gaming_${this._config.gaming_image}.png`;
+        }
+
+        // --- PRIORITY 2: Birthdays (hardcoded dates, ±0 days = exact match) ---
+        const birthdays = this._config.birthdays || [];
+        for (const bday of birthdays) {
+            if (bday.date === mmdd) {
+                // Birthday themes have all-season variants: themed_{name}_{season}_{time}.png
+                return `${path}themed_${bday.name}_${season}_${timeOfDay}.png`;
+            }
+        }
+
+        // --- PRIORITY 3: Themed Days by date ---
+
+        // New Years Eve & Day (Dec 31 - Jan 1)
+        if ((month === 12 && day === 31) || (month === 1 && day === 1)) {
+            return `${path}themed_new_years_${timeOfDay}.png`;
+        }
+
+        // Australia Day (Jan 26)
+        if (month === 1 && day === 26) {
+            return `${path}themed_australia_day_${timeOfDay}.png`;
+        }
+
+        // Mothers Day (2nd Sunday of May in Australia)
+        if (month === 5) {
+            const mothersDay = this._getNthSundayOfMonth(year, 5, 2);
+            if (day === mothersDay) {
+                return `${path}themed_mothers_day_${timeOfDay}.png`;
+            }
+        }
+
+        // Fathers Day (1st Sunday of September in Australia)
+        if (month === 9) {
+            const fathersDay = this._getNthSundayOfMonth(year, 9, 1);
+            if (day === fathersDay) {
+                return `${path}themed_fathers_day_${timeOfDay}.png`;
+            }
+        }
+
+        // Halloween (Oct 25 - Oct 31)
+        if (month === 10 && day >= 25) {
+            return `${path}halloween_${timeOfDay}.png`;
+        }
+
+        // Christmas (Dec 14 - Dec 25, excluding New Years & Australia Day handled above)
+        // Alternates daily: even days = traditional (white xmas), odd days = australian
+        if (month === 12 && day >= 14 && day <= 25) {
+            const isAustralian = day % 2 !== 0;
+            if (isAustralian) {
+                return `${path}xmas_australian_${timeOfDay}.png`;
+            }
+            return `${path}xmas_${timeOfDay}.png`;
+        }
+
+        // --- PRIORITY 4: Xbox Kid (themed day, no date - config driven) ---
+        // Can be triggered via a HA entity if desired
+        // TODO: future - calendar integration
+
+        // --- PRIORITY 5: Weather variants ---
         const wStateRaw = this._hass.states[this._config.weather_entity]?.state;
         let weatherSuffix = null;
 
         if (wStateRaw) {
             const s = wStateRaw.toLowerCase();
-            
-            // Tłumaczenie stanów HA na Twoje nazwy plików
             if (['lightning', 'lightning-rainy'].includes(s)) {
                 weatherSuffix = 'lightning';
             } else if (['rainy', 'pouring'].includes(s)) {
@@ -209,22 +289,17 @@ class ForkUHouseCard extends HTMLElement {
             } else if (s === 'fog') {
                 weatherSuffix = 'fog';
             }
-            // Sunny, cloudy, partlycloudy -> weatherSuffix pozostaje null (czyli fallback do season_day.png)
         }
 
-        // 5. Sprawdzenie Boolean w Configu
         if (weatherSuffix) {
-            // Klucz np.: img_winter_day_rainy
             const configKey     = `img_${season}_${timeOfDay}_${weatherSuffix}`;
             const configKey_alt = `img_${season}_${weatherSuffix}_${timeOfDay}`;
-            
-            // Jeśli w YAML jest: img_winter_day_rainy: true
             if (this._config[configKey] === true || this._config[configKey_alt] === true) {
                 return `${path}${season}_${weatherSuffix}_${timeOfDay}.png`;
             }
         }
 
-        // 6. Fallback (Neutralny)
+        // --- PRIORITY 6: Season fallback ---
         return `${path}${season}_${timeOfDay}.png`;
     }
 
@@ -250,7 +325,7 @@ class ForkUHouseCard extends HTMLElement {
       const roomsData = this._config.rooms.map(r => {
         const s = this._hass.states[r.entity];
         const v = s ? parseFloat(s.state) : null;
-        return { ...r, value: v, valid: !isNaN(v) };
+        return { ...r, value: v, valid: v !== null && !isNaN(v) };
       });
       
       const weighted = roomsData.filter(r => r.valid && (r.weight === undefined || r.weight > 0)).map(r => r.value).sort((a,b)=>a-b);
@@ -493,7 +568,7 @@ class ForkUHouseCard extends HTMLElement {
           /* GAMING AMBIENT LAYER */
           .ambient-layer {
               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-              z-index: 2; pointer-events: none; opacity: 0; transition: opacity 1.5s ease;
+              z-index: 1; pointer-events: none; opacity: 0; transition: opacity 1.5s ease;
           }
           .card.gaming-active .ambient-layer { opacity: 1; }
           
@@ -509,9 +584,9 @@ class ForkUHouseCard extends HTMLElement {
           @keyframes float-2 { 0% { transform: translate(0,0) scale(1); opacity: 0.6; } 100% { transform: translate(-30px, -20px) scale(1.15); opacity: 0.8; } }
           @keyframes pulse-3 { 0% { transform: scale(0.9); opacity: 0.4; } 50% { transform: scale(1.2); opacity: 0.7; } 100% { transform: scale(0.9); opacity: 0.4; } }
 
-          canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+          canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
           
-          .badges-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+          .badges-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
           .badge {
               position: absolute; transform: translate(-50%, -50%);
               padding: 6px 12px;
@@ -532,7 +607,7 @@ class ForkUHouseCard extends HTMLElement {
           .badge-val { font-size: 0.80rem; font-weight: 700; color: #fff; }
           
           .footer {
-              position: absolute; bottom: 0; left: 0; width: 100%; z-index: 5;
+              position: absolute; bottom: 0; left: 0; width: 100%; z-index: 3;
               background: rgba(10, 10, 15, 0.25); backdrop-filter: blur(15px);
               border-top: 1px solid rgba(255,255,255,0.05); padding: 12px 16px;
               display: flex; align-items: center; gap: 12px; box-sizing: border-box; transition: background 0.3s;

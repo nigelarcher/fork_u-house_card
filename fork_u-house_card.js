@@ -186,6 +186,43 @@ class ForkUHouseCard extends HTMLElement {
         return d.getDate();
     }
 
+    _getNthDayOfMonth(year, month, dayOfWeek, n) {
+        // Returns the date of the nth occurrence of dayOfWeek (0=Sun..6=Sat) in a month
+        const d = new Date(year, month - 1, 1);
+        let count = 0;
+        while (count < n) {
+            if (d.getDay() === dayOfWeek) count++;
+            if (count < n) d.setDate(d.getDate() + 1);
+        }
+        return d.getDate();
+    }
+
+    _getLastDayOfMonth(year, month, dayOfWeek) {
+        // Returns the date of the last occurrence of dayOfWeek in a month
+        const d = new Date(year, month, 0); // last day of month
+        while (d.getDay() !== dayOfWeek) d.setDate(d.getDate() - 1);
+        return d.getDate();
+    }
+
+    _getEasterSunday(year) {
+        // Anonymous Gregorian algorithm for Easter Sunday
+        const a = year % 19;
+        const b = Math.floor(year / 100);
+        const c = year % 100;
+        const d = Math.floor(b / 4);
+        const e = b % 4;
+        const f = Math.floor((b + 8) / 25);
+        const g = Math.floor((b - f + 1) / 3);
+        const h = (19 * a + b - d - g + 15) % 30;
+        const i = Math.floor(c / 4);
+        const k = c % 4;
+        const l = (32 + 2 * e + 2 * i - h - k) % 7;
+        const m = Math.floor((a + 11 * h + 22 * l) / 451);
+        const month = Math.floor((h + l - 7 * m + 114) / 31);
+        const day = ((h + l - 7 * m + 114) % 31) + 1;
+        return { month, day };
+    }
+
     _calculateImage() {
         const path = this._config.image_path || "/local/community/fork_u-house_card/images/";
 
@@ -245,12 +282,83 @@ class ForkUHouseCard extends HTMLElement {
             return `${path}themed_australia_day_${timeOfDay}.png`;
         }
 
+        // Back to School (Jan 27 - Jan 31)
+        if (month === 1 && day >= 27 && day <= 31) {
+            return `${path}themed_back_to_school_${timeOfDay}.png`;
+        }
+
+        // Lunar New Year (Jan 20 - Feb 12 approximate range, varies yearly)
+        // Shows for 3 days around the actual date — simplified to late Jan/early Feb
+        if ((month === 1 && day >= 20) || (month === 2 && day <= 12)) {
+            // Only show if not overlapping with Australia Day or Back to School above
+            return `${path}themed_lunar_new_year_${timeOfDay}.png`;
+        }
+
+        // Valentine's Day (Feb 14)
+        if (month === 2 && day === 14) {
+            return `${path}themed_valentines_day_${timeOfDay}.png`;
+        }
+
+        // St Patrick's Day (Mar 17)
+        if (month === 3 && day === 17) {
+            return `${path}themed_st_patricks_day_${timeOfDay}.png`;
+        }
+
+        // Neighbour Day (last Sunday of March)
+        if (month === 3) {
+            const neighbourDay = this._getLastDayOfMonth(year, 3, 0);
+            if (day === neighbourDay) {
+                return `${path}themed_neighbour_day_${timeOfDay}.png`;
+            }
+        }
+
+        // Easter (Good Friday to Easter Monday — 4 days)
+        {
+            const easter = this._getEasterSunday(year);
+            const easterDate = new Date(year, easter.month - 1, easter.day);
+            const goodFriday = new Date(easterDate);
+            goodFriday.setDate(easterDate.getDate() - 2);
+            const easterMonday = new Date(easterDate);
+            easterMonday.setDate(easterDate.getDate() + 1);
+            const todayDate = new Date(year, month - 1, day);
+            if (todayDate >= goodFriday && todayDate <= easterMonday) {
+                return `${path}themed_easter_${timeOfDay}.png`;
+            }
+        }
+
+        // ANZAC Day (Apr 25)
+        if (month === 4 && day === 25) {
+            return `${path}themed_anzac_day_${timeOfDay}.png`;
+        }
+
         // Mothers Day (2nd Sunday of May in Australia)
         if (month === 5) {
             const mothersDay = this._getNthSundayOfMonth(year, 5, 2);
             if (day === mothersDay) {
                 return `${path}themed_mothers_day_${timeOfDay}.png`;
             }
+        }
+
+        // World Environment Day (Jun 5)
+        if (month === 6 && day === 5) {
+            return `${path}themed_environment_day_${timeOfDay}.png`;
+        }
+
+        // State of Origin (3 games in Jun-Jul, approximate: show for June Wed nights)
+        // Games are typically Wed nights in June/early July
+        {
+            const sooGame1 = this._getNthDayOfMonth(year, 6, 3, 1); // 1st Wed June
+            const sooGame2 = this._getNthDayOfMonth(year, 6, 3, 3); // 3rd Wed June
+            const sooGame3 = this._getNthDayOfMonth(year, 7, 3, 2); // 2nd Wed July
+            if ((month === 6 && (day === sooGame1 || day === sooGame2)) ||
+                (month === 7 && day === sooGame3)) {
+                return `${path}themed_state_of_origin_${timeOfDay}.png`;
+            }
+        }
+
+        // Wedding Anniversary (Sep 8)
+        if (month === 9 && day === 8) {
+            return `${path}themed_wedding_anniversary_${timeOfDay}.png`;
         }
 
         // Fathers Day (1st Sunday of September in Australia)
@@ -261,9 +369,25 @@ class ForkUHouseCard extends HTMLElement {
             }
         }
 
+        // AFL Grand Final (last Saturday of September)
+        if (month === 9) {
+            const aflFinal = this._getLastDayOfMonth(year, 9, 6); // last Saturday
+            if (day === aflFinal) {
+                return `${path}themed_afl_grand_final_${timeOfDay}.png`;
+            }
+        }
+
         // Halloween (Oct 25 - Oct 31)
         if (month === 10 && day >= 25) {
             return `${path}halloween_${timeOfDay}.png`;
+        }
+
+        // Melbourne Cup (1st Tuesday of November)
+        if (month === 11) {
+            const melbCup = this._getNthDayOfMonth(year, 11, 2, 1); // 1st Tuesday
+            if (day === melbCup) {
+                return `${path}themed_melbourne_cup_${timeOfDay}.png`;
+            }
         }
 
         // --- PRIORITY 5: Xbox Kid (themed day, no date - config driven) ---

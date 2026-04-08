@@ -777,9 +777,9 @@ class ForkUHouseCard extends HTMLElement {
 
         // Default positions for auto-discovered sources (spread around the house)
         const defaultSourcePositions = {
-            solar: { x: 57, y: 12, icon: 'mdi:solar-power', color: '#FBBF24', name: 'Solar' },
-            grid: { x: 88, y: 55, icon: 'mdi:transmission-tower', color: '#60A5FA', name: 'Grid' },
-            battery: { x: 15, y: 30, icon: 'mdi:battery', color: '#34D399', name: 'Battery' },
+            solar: { x: 57, y: 12, icon: 'mdi:solar-power', color: '#FBBF24' },
+            grid: { x: 88, y: 55, icon: 'mdi:transmission-tower', color: '#60A5FA' },
+            battery: { x: 15, y: 30, icon: 'mdi:battery', color: '#34D399' },
         };
 
         autoSources && sources.forEach(source => {
@@ -1046,7 +1046,7 @@ class ForkUHouseCard extends HTMLElement {
               ${homeIconHtml}
             </div>
             <span class="enode-value" style="border-color: ${homeColor}44;">${homeVal.toFixed(1)} ${homeUnit}</span>
-            ${homeCfg.name ? `<span class="enode-label">${homeCfg.name}</span>` : '<span class="enode-label">Home</span>'}
+            ${homeCfg.name ? `<span class="enode-label">${homeCfg.name}</span>` : ''}
           </div>`;
 
         // Build a cache key from sensor values + card dimensions to avoid re-rendering

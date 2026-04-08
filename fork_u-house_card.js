@@ -851,13 +851,12 @@ class ForkUHouseCard extends HTMLElement {
             return;
         }
 
-        // Kick off async prefs fetch if auto mode
-        if (energyCfg.auto && !this._energyPrefsLoading) {
-            this._energyPrefsLoading = true;
+        // Kick off async prefs fetch if auto mode (once, not on every update)
+        if (energyCfg.auto && !this._energyPrefsFetched) {
+            this._energyPrefsFetched = true;
             this._fetchEnergyPrefs().then(prefs => {
-                this._energyPrefsLoading = false;
                 this._energyPrefs = prefs;
-                this._updateEnergy(); // re-render with prefs
+                this._energyDirty = true; // flag to re-render on next update cycle
             });
             // On first call with no cache, show manual nodes only
             if (!this._energyPrefs && (!energyCfg.nodes || energyCfg.nodes.length === 0)) return;
@@ -991,15 +990,24 @@ class ForkUHouseCard extends HTMLElement {
             ${homeCfg.name ? `<span class="enode-label">${homeCfg.name}</span>` : '<span class="enode-label">Home</span>'}
           </div>`;
 
-        const html = `
+        // Build a cache key from sensor values + card dimensions to avoid re-rendering
+        // when nothing has changed (re-rendering kills SVG animations)
+        const cacheKey = `${w}x${h}|${homeVal.toFixed(1)}|` + resolvedNodes.map(n => {
+            const v = this._getStateVal(n.entity) ?? 0;
+            return `${n.entity}:${v.toFixed(1)}`;
+        }).join('|');
+
+        if (this._energyCacheKey === cacheKey && !this._energyDirty) return;
+        this._energyCacheKey = cacheKey;
+        this._energyDirty = false;
+
+        container.innerHTML = `
           <svg class="energy-svg" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
             ${svgPaths}
             ${svgDots}
           </svg>
           ${homeNodeHtml}
           ${nodesHtml}`;
-
-        if (container.innerHTML !== html) container.innerHTML = html;
     }
 
     _handleGamingMode() {

@@ -464,6 +464,7 @@ class ForkUHouseCard extends HTMLElement {
   
       // Updates
       this._updateBadges(roomsData);
+      this._updateAlerts();
       this._handleGamingMode();
       this._handleDayNight();
       this._generateAIStatus(median);
@@ -523,6 +524,39 @@ class ForkUHouseCard extends HTMLElement {
         if (v < defaults[1]) return { colorClass: 'is-optimal', colorStyle: '' };
         if (v < defaults[2]) return { colorClass: 'is-warm', colorStyle: '' };
         return { colorClass: 'is-hot', colorStyle: '' };
+    }
+
+    _updateAlerts() {
+        const container = this.shadowRoot.querySelector('.alerts-layer');
+        if (!container) return;
+        const alerts = this._config.alerts || [];
+        container.innerHTML = alerts.map(alert => {
+            const state = this._hass.states[alert.entity]?.state;
+            if (!state) return '';
+
+            // Determine if alert is active
+            const showWhen = alert.show_when ?? 'on';
+            let active;
+            if (Array.isArray(showWhen)) {
+                active = showWhen.includes(state);
+            } else {
+                active = state.toLowerCase() === showWhen.toLowerCase();
+            }
+            if (!active) return '';
+
+            const top = alert.y ?? 50;
+            const left = alert.x ?? 50;
+            const icon = alert.icon ?? '!';
+            const color = alert.color ?? '#F87171';
+            const label = alert.label ?? '';
+            const pulse = alert.pulse !== false ? 'alert-pulse' : '';
+
+            return `
+              <div class="alert-badge ${pulse}" style="top: ${top}%; left: ${left}%;">
+                <div class="alert-icon" style="background: ${color}; box-shadow: 0 0 8px ${color};">${icon}</div>
+                ${label ? `<span class="alert-label">${label}</span>` : ''}
+              </div>`;
+        }).join('');
     }
 
     _handleGamingMode() {
@@ -761,7 +795,31 @@ class ForkUHouseCard extends HTMLElement {
           .badge-content { display: flex; flex-direction: column; line-height: 1; }
           .badge-name { font-size: 0.55rem; color: #aaa; text-transform: uppercase; margin-bottom: 2px; }
           .badge-val { font-size: 0.80rem; font-weight: 700; color: #fff; }
-          
+
+          /* ALERT BADGES */
+          .alerts-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
+          .alert-badge {
+              position: absolute; transform: translate(-50%, -50%);
+              display: flex; align-items: center; gap: 6px; pointer-events: auto;
+          }
+          .alert-icon {
+              width: 24px; height: 24px; border-radius: 50%;
+              display: flex; align-items: center; justify-content: center;
+              font-size: 0.7rem; color: #fff; font-weight: 700;
+          }
+          .alert-label {
+              font-size: 0.55rem; color: #fff; text-transform: uppercase;
+              background: rgba(20, 20, 25, 0.75); backdrop-filter: blur(8px);
+              border: 1px solid rgba(255,255,255,0.15);
+              padding: 2px 8px; border-radius: 10px;
+              white-space: nowrap;
+          }
+          .alert-pulse .alert-icon { animation: alert-glow 1.5s ease-in-out infinite; }
+          @keyframes alert-glow {
+              0%, 100% { opacity: 1; transform: scale(1); }
+              50% { opacity: 0.6; transform: scale(1.15); }
+          }
+
           .footer {
               position: absolute; bottom: 0; left: 0; width: 100%; z-index: 3;
               background: rgba(10, 10, 15, 0.25); backdrop-filter: blur(15px);
@@ -828,6 +886,7 @@ class ForkUHouseCard extends HTMLElement {
           </div>
           <canvas id="weatherCanvas"></canvas>
           <div class="badges-layer"></div>
+          <div class="alerts-layer"></div>
           <div class="footer" data-status="normal">
               <div class="median-pill">Dom: --</div>
               <div class="footer-content">${this._t('loading')}</div>

@@ -893,14 +893,25 @@ class ForkUHouseCard extends HTMLElement {
         const w = card.offsetWidth || 800;
         const h = card.offsetHeight || 533;
 
+        // Helper: get value in kW, auto-converting from W if needed
+        const getKw = (entityId, cfgUnit) => {
+            const raw = this._getStateVal(entityId) ?? 0;
+            if (cfgUnit) return { val: raw, unit: cfgUnit }; // manual unit override
+            const haUnit = this._hass.states[entityId]?.attributes?.unit_of_measurement ?? '';
+            if (haUnit === 'W' || haUnit === 'Wh') return { val: raw / 1000, unit: 'kW' };
+            if (haUnit === 'kW' || haUnit === 'kWh') return { val: raw, unit: 'kW' };
+            return { val: raw, unit: haUnit || 'kW' };
+        };
+
         // Get home node config and value
         const homeCfg = energyCfg.home;
-        const homeVal = this._getStateVal(homeCfg.entity) ?? 0;
+        const homeData = getKw(homeCfg.entity, homeCfg.unit);
+        const homeVal = homeData.val;
         const homeX = (homeCfg.x ?? 50) / 100 * w;
         const homeY = (homeCfg.y ?? 40) / 100 * h;
         const homeColor = homeCfg.color ?? '#A78BFA';
         const homeIcon = homeCfg.icon ?? 'mdi:home';
-        const homeUnit = homeCfg.unit ?? 'kW';
+        const homeUnit = homeData.unit;
 
         // Build SVG paths and dots, plus node HTML
         let svgPaths = '';
@@ -908,12 +919,13 @@ class ForkUHouseCard extends HTMLElement {
         let nodesHtml = '';
 
         resolvedNodes.forEach((node, idx) => {
-            const val = this._getStateVal(node.entity) ?? 0;
+            const nodeData = getKw(node.entity, node.unit);
+            const val = nodeData.val;
             const absVal = Math.abs(val);
             const max = node.max ?? 10;
             const color = node.color ?? '#888';
             const icon = node.icon ?? 'mdi:flash';
-            const unit = node.unit ?? 'kW';
+            const unit = nodeData.unit;
             const label = node.name ?? '';
             const nx = (node.x ?? 50) / 100 * w;
             const ny = (node.y ?? 50) / 100 * h;

@@ -747,12 +747,10 @@ class ForkUHouseCard extends HTMLElement {
         }
         try {
             const prefs = await this._hass.callWS({ type: 'energy/get_prefs' });
-            console.log('[fork-u-house] Energy prefs:', JSON.stringify(prefs, null, 2));
             this._energyPrefsCache = prefs;
             this._energyPrefsCacheTime = now;
             return prefs;
         } catch (e) {
-            console.error('[fork-u-house] Energy prefs fetch failed:', e);
             return null;
         }
     }
@@ -851,7 +849,6 @@ class ForkUHouseCard extends HTMLElement {
         });
 
         // Manual nodes take priority, auto nodes fill gaps
-        console.log('[fork-u-house] Auto nodes resolved:', autoNodes.map(n => `${n.name}(${n.entity})`));
         return [...manualNodes, ...autoNodes];
     }
 
@@ -899,21 +896,37 @@ class ForkUHouseCard extends HTMLElement {
             if (cfgUnit) return { val: raw, unit: cfgUnit }; // manual unit override
             const stateObj = this._hass.states[entityId];
             const haUnit = stateObj?.attributes?.unit_of_measurement ?? '';
-            console.log(`[fork-u-house] getKw: ${entityId} = ${raw} ${haUnit} (state: ${stateObj?.state})`);
             if (haUnit === 'W' || haUnit === 'Wh') return { val: raw / 1000, unit: 'kW' };
             if (haUnit === 'kW' || haUnit === 'kWh') return { val: raw, unit: 'kW' };
             return { val: raw, unit: haUnit || 'kW' };
         };
 
-        // Get home node config and value
+        // Get home node config
         const homeCfg = energyCfg.home;
-        const homeData = getKw(homeCfg.entity, homeCfg.unit);
-        const homeVal = homeData.val;
         const homeX = (homeCfg.x ?? 50) / 100 * w;
         const homeY = (homeCfg.y ?? 40) / 100 * h;
         const homeColor = homeCfg.color ?? '#A78BFA';
         const homeIcon = homeCfg.icon ?? 'mdi:home';
-        const homeUnit = homeData.unit;
+
+        // Home value: use entity if provided, otherwise calculate from nodes
+        // Home consumption = sum of sources flowing in - (grid export if present)
+        let homeVal;
+        let homeUnit;
+        if (homeCfg.entity) {
+            const homeData = getKw(homeCfg.entity, homeCfg.unit);
+            homeVal = homeData.val;
+            homeUnit = homeData.unit;
+        } else {
+            // Auto-calculate: sum sources - sum consumers going out (like grid export)
+            let totalSources = 0;
+            resolvedNodes.forEach(n => {
+                const nData = getKw(n.entity, n.unit);
+                const v = Math.abs(nData.val);
+                if (n.direction === 'source') totalSources += v;
+            });
+            homeVal = totalSources;
+            homeUnit = homeCfg.unit ?? 'kW';
+        }
 
         // Build SVG paths and dots, plus node HTML
         let svgPaths = '';

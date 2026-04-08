@@ -500,6 +500,17 @@ class ForkUHouseCard extends HTMLElement {
         if (rule === undefined || rule === null) return true;
 
         if (Array.isArray(rule)) {
+            // Check if array contains operator objects (HA reformats {gt:1} to [{gt:1}])
+            // If first element is an object with operator keys, treat as operator
+            const ops = ['gt', 'lt', 'gte', 'lte', 'eq', 'neq', 'range'];
+            if (rule.length > 0 && typeof rule[0] === 'object' && rule[0] !== null) {
+                const firstKeys = Object.keys(rule[0]);
+                if (firstKeys.some(k => ops.includes(k))) {
+                    // Merge all objects in the array into one rule object
+                    const merged = Object.assign({}, ...rule);
+                    return this._evaluateVisibility(merged, value);
+                }
+            }
             return rule.some(r => String(r).toLowerCase() === String(value).toLowerCase());
         }
 

@@ -549,7 +549,7 @@ class ForkUHouseCard extends HTMLElement {
             const rawIcon = alert.icon ?? '!';
             const color = alert.color || null;
             const label = alert.label ?? '';
-            const pulse = alert.pulse !== false && color ? 'alert-pulse' : '';
+            const pulse = alert.pulse !== false ? 'alert-pulse' : '';
 
             // Support mdi: icons (rendered as HA icon element) or emoji/text
             const mdiColor = color ? '#fff' : '#ccc';

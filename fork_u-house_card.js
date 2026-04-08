@@ -947,7 +947,7 @@ class ForkUHouseCard extends HTMLElement {
             // Animated dots — count and speed based on power
             const intensity = Math.min(absVal / max, 1);
             const dotCount = Math.max(1, Math.round(intensity * 4));
-            const duration = 3 - intensity * 2; // 3s at 0, 1s at max
+            const duration = 8 - intensity * 4; // 8s at idle, 4s at max
 
             for (let d = 0; d < dotCount; d++) {
                 const delay = (d / dotCount) * duration;
@@ -992,9 +992,10 @@ class ForkUHouseCard extends HTMLElement {
 
         // Build a cache key from sensor values + card dimensions to avoid re-rendering
         // when nothing has changed (re-rendering kills SVG animations)
-        const cacheKey = `${w}x${h}|${homeVal.toFixed(1)}|` + resolvedNodes.map(n => {
+        // Round to whole numbers so small sensor fluctuations don't restart animations
+        const cacheKey = `${w}x${h}|${Math.round(homeVal)}|` + resolvedNodes.map(n => {
             const v = this._getStateVal(n.entity) ?? 0;
-            return `${n.entity}:${v.toFixed(1)}`;
+            return `${n.entity}:${Math.round(v)}`;
         }).join('|');
 
         if (this._energyCacheKey === cacheKey && !this._energyDirty) return;

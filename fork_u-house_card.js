@@ -802,15 +802,6 @@ class ForkUHouseCard extends HTMLElement {
                         ...defaultSourcePositions.grid, ...pos,
                     });
                 }
-                // Grid export (shown as consumer from home's perspective)
-                const exportEntity = source.power_config?.stat_rate_to || source.stat_energy_to;
-                if (exportEntity && !manualEntities.has(exportEntity)) {
-                    const pos = positions.grid_export || { x: 90, y: 45, icon: 'mdi:transmission-tower-export', color: '#34D399', name: 'Export' };
-                    autoNodes.push({
-                        entity: exportEntity, direction: 'consumer', max: 10,
-                        ...pos,
-                    });
-                }
             } else if (source.type === 'battery') {
                 // Battery discharge (source) — use power sensor if available
                 const dischargeEntity = source.power_config?.stat_rate_from || source.power_config?.stat_rate || source.stat_energy_from;

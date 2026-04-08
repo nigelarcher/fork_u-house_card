@@ -552,9 +552,9 @@ class ForkUHouseCard extends HTMLElement {
             const pulse = alert.pulse !== false ? 'alert-pulse' : '';
 
             // Support mdi: icons (rendered as HA icon element) or emoji/text
-            const mdiColor = color ? '#fff' : '#ccc';
+            const iconColor = alert.icon_color ?? (color ? '#fff' : '#ccc');
             const iconContent = rawIcon.startsWith('mdi:')
-                ? `<ha-icon icon="${rawIcon}" style="--mdc-icon-size: 14px; color: ${mdiColor};"></ha-icon>`
+                ? `<ha-icon icon="${rawIcon}" style="--mdc-icon-size: 14px; color: ${iconColor};"></ha-icon>`
                 : rawIcon;
 
             const iconStyle = color
@@ -824,10 +824,10 @@ class ForkUHouseCard extends HTMLElement {
               padding: 2px 8px; border-radius: 10px;
               white-space: nowrap;
           }
-          .alert-pulse .alert-icon { animation: alert-glow 1.5s ease-in-out infinite; }
+          .alert-pulse { animation: alert-glow 1.5s ease-in-out infinite; }
           @keyframes alert-glow {
-              0%, 100% { opacity: 1; transform: scale(1); }
-              50% { opacity: 0.6; transform: scale(1.15); }
+              0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+              50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.2); }
           }
 
           .footer {

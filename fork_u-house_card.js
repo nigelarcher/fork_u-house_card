@@ -945,19 +945,19 @@ class ForkUHouseCard extends HTMLElement {
                 if (!this._evaluateVisibility(showWhen, state)) return;
             }
 
-            // Skip if zero and hide_zero is set
-            if (absVal === 0 && node.hide_zero !== false) {
-                // Still show node but dimmed
+            // Dim or hide when near zero (< 0.1 kW)
+            const nearZero = absVal < 0.1;
+            if (nearZero) {
+                if (node.hide_zero === true) return; // completely hidden
+                // Show very faint
                 const dimIcon = icon.startsWith('mdi:')
                     ? `<ha-icon icon="${icon}" style="--mdc-icon-size: ${nodeSize * 0.45}px; color: #555;"></ha-icon>`
                     : `<span style="font-size:${nodeSize * 0.45}px; color: #555;">${icon}</span>`;
                 nodesHtml += `
-                  <div class="energy-node energy-off" style="top: ${node.y ?? 50}%; left: ${node.x ?? 50}%;">
+                  <div class="energy-node energy-off" style="top: ${node.y ?? 50}%; left: ${node.x ?? 50}%; opacity: 0.15;">
                     <div class="enode-circle" style="width:${nodeSize}px; height:${nodeSize}px; border-color: #444;">
                       ${dimIcon}
                     </div>
-                    <span class="enode-value">0 ${unit}</span>
-                    ${label ? `<span class="enode-label">${label}</span>` : ''}
                   </div>`;
                 return;
             }

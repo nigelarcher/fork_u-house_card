@@ -996,10 +996,31 @@ class ForkUHouseCard extends HTMLElement {
                   </circle>`;
             }
 
-            // Node circle
-            const iconHtml = icon.startsWith('mdi:')
-                ? `<ha-icon icon="${icon}" style="--mdc-icon-size: ${nodeSize * 0.45}px; color: ${color};"></ha-icon>`
-                : `<span style="font-size:${nodeSize * 0.45}px;">${icon}</span>`;
+            // Node circle — battery gets special SOC icon
+            let iconHtml;
+            let extraValue = '';
+            if (node.battery_entity) {
+                const soc = this._getStateVal(node.battery_entity) ?? 0;
+                const socRound = Math.round(soc);
+                // Pick battery icon based on level
+                let batIcon = 'mdi:battery';
+                if (socRound <= 5) batIcon = 'mdi:battery-outline';
+                else if (socRound <= 15) batIcon = 'mdi:battery-10';
+                else if (socRound <= 25) batIcon = 'mdi:battery-20';
+                else if (socRound <= 35) batIcon = 'mdi:battery-30';
+                else if (socRound <= 45) batIcon = 'mdi:battery-40';
+                else if (socRound <= 55) batIcon = 'mdi:battery-50';
+                else if (socRound <= 65) batIcon = 'mdi:battery-60';
+                else if (socRound <= 75) batIcon = 'mdi:battery-70';
+                else if (socRound <= 85) batIcon = 'mdi:battery-80';
+                else if (socRound <= 95) batIcon = 'mdi:battery-90';
+                iconHtml = `<ha-icon icon="${batIcon}" style="--mdc-icon-size: ${nodeSize * 0.45}px; color: ${color};"></ha-icon>`;
+                extraValue = `<span class="enode-soc">${socRound}%</span>`;
+            } else if (icon.startsWith('mdi:')) {
+                iconHtml = `<ha-icon icon="${icon}" style="--mdc-icon-size: ${nodeSize * 0.45}px; color: ${color};"></ha-icon>`;
+            } else {
+                iconHtml = `<span style="font-size:${nodeSize * 0.45}px;">${icon}</span>`;
+            }
 
             const sizeClass = isSource ? 'enode-source' : 'enode-consumer';
             nodesHtml += `
@@ -1008,7 +1029,7 @@ class ForkUHouseCard extends HTMLElement {
                   <div class="enode-glow" style="background: radial-gradient(circle, ${color}66 0%, transparent 70%);"></div>
                   ${iconHtml}
                 </div>
-                <span class="enode-value" style="border-color: ${color}44;">${absVal.toFixed(1)} ${unit}</span>
+                <span class="enode-value" style="border-color: ${color}44;">${extraValue}${absVal.toFixed(1)} ${unit}</span>
                 ${label ? `<span class="enode-label">${label}</span>` : ''}
               </div>`;
         });
@@ -1033,7 +1054,8 @@ class ForkUHouseCard extends HTMLElement {
         // Round to whole numbers so small sensor fluctuations don't restart animations
         const cacheKey = `${w}x${h}|${Math.round(homeVal)}|` + resolvedNodes.map(n => {
             const v = this._getStateVal(n.entity) ?? 0;
-            return `${n.entity}:${Math.round(v)}`;
+            const batt = n.battery_entity ? Math.round(this._getStateVal(n.battery_entity) ?? 0) : '';
+            return `${n.entity}:${Math.round(v)}:${batt}`;
         }).join('|');
 
         if (this._energyCacheKey === cacheKey && !this._energyDirty) return;
@@ -1396,6 +1418,9 @@ class ForkUHouseCard extends HTMLElement {
           }
           .enode-label {
               font-size: 0.42rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px;
+          }
+          .enode-soc {
+              font-size: 0.55rem; font-weight: 700; color: #fff; margin-right: 3px;
           }
           .energy-off .enode-circle { border-color: #444 !important; }
           .energy-off .enode-value { opacity: 0.4; }

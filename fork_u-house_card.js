@@ -656,7 +656,7 @@ class ForkUHouseCard extends HTMLElement {
         tomorrow.setDate(tomorrow.getDate() + 1);
         const tonight = now.getHours() >= 17;
 
-        container.innerHTML = bins.map(bin => {
+        const html = bins.map(bin => {
             // Show if today is collection day, or from 5pm the night before
             const show = this._isBinCollectionDay(bin, today) || (tonight && this._isBinCollectionDay(bin, tomorrow));
             if (!show) return '';
@@ -676,6 +676,7 @@ class ForkUHouseCard extends HTMLElement {
                 ${label ? `<span class="bin-label" style="color: ${color};">${label}</span>` : ''}
               </div>`;
         }).join('');
+        if (container.innerHTML !== html) container.innerHTML = html;
     }
 
     _handleGamingMode() {
@@ -977,17 +978,12 @@ class ForkUHouseCard extends HTMLElement {
           .bin-badge {
               position: absolute; transform: translate(-50%, -50%);
               display: flex; flex-direction: column; align-items: center; gap: 2px;
-              animation: bin-appear 0.5s ease-out;
           }
           .bin-icon { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5)); }
           .bin-label {
               font-size: 0.5rem; font-weight: 700; text-transform: uppercase;
               text-shadow: 0 1px 2px rgba(0,0,0,0.8);
               white-space: nowrap;
-          }
-          @keyframes bin-appear {
-              0% { opacity: 0; transform: translate(-50%, -30%); }
-              100% { opacity: 1; transform: translate(-50%, -50%); }
           }
 
           .footer {

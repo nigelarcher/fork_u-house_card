@@ -465,6 +465,8 @@ class ForkUHouseCard extends HTMLElement {
       // Updates
       this._updateBadges(roomsData);
       this._updateAlerts();
+      this._updateSprinklers();
+      this._updateBins();
       this._handleGamingMode();
       this._handleDayNight();
       this._generateAIStatus(median);
@@ -565,6 +567,113 @@ class ForkUHouseCard extends HTMLElement {
               <div class="alert-badge ${pulse}" style="top: ${top}%; left: ${left}%;">
                 <div class="alert-icon" ${iconStyle}>${iconContent}</div>
                 ${label ? `<span class="alert-label">${label}</span>` : ''}
+              </div>`;
+        }).join('');
+    }
+
+    _updateSprinklers() {
+        const container = this.shadowRoot.querySelector('.sprinklers-layer');
+        if (!container) return;
+        const sprinklers = this._config.sprinklers || [];
+        container.innerHTML = sprinklers.map(zone => {
+            const state = this._hass.states[zone.entity]?.state;
+            if (!state) return '';
+            const showWhen = zone.show_when ?? 'on';
+            let active;
+            if (Array.isArray(showWhen)) {
+                active = showWhen.some(s => s.toLowerCase() === state.toLowerCase());
+            } else {
+                active = state.toLowerCase() === showWhen.toLowerCase();
+            }
+            if (!active) return '';
+
+            const top = zone.y ?? 50;
+            const left = zone.x ?? 50;
+            const color = zone.color ?? '#38BDF8';
+            const label = zone.label ?? '';
+            const size = zone.size ?? 'medium';
+            const sizeClass = `sprinkler-${size}`;
+
+            return `
+              <div class="sprinkler-zone ${sizeClass}" style="top: ${top}%; left: ${left}%;">
+                <div class="sprinkler-head" style="color: ${color};">
+                  <div class="sprinkler-spray" style="border-color: ${color};"></div>
+                  <div class="sprinkler-spray spray-2" style="border-color: ${color};"></div>
+                  <div class="sprinkler-spray spray-3" style="border-color: ${color};"></div>
+                  <div class="sprinkler-icon">💦</div>
+                </div>
+                ${label ? `<span class="sprinkler-label">${label}</span>` : ''}
+              </div>`;
+        }).join('');
+    }
+
+    _isBinCollectionDay(bin, checkDate) {
+        // Returns true if checkDate is a collection day for this bin
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const collectionDay = bin.day?.toLowerCase();
+        const dateDayName = dayNames[checkDate.getDay()];
+
+        // Wrong day of week — not a collection day
+        if (collectionDay !== dateDayName) return false;
+
+        // Cadence check: weekly (default), fortnightly, monthly
+        const cadence = (bin.cadence ?? 'weekly').toLowerCase();
+        if (cadence === 'weekly') return true;
+
+        // Need an anchor_date for fortnightly/monthly
+        if (!bin.anchor_date) return true; // no anchor = assume every occurrence
+
+        // Parse anchor date (YYYY-MM-DD)
+        const anchor = new Date(bin.anchor_date + 'T00:00:00');
+        if (isNaN(anchor.getTime())) return true; // invalid anchor = show anyway
+
+        if (cadence === 'fortnightly') {
+            // Count weeks between anchor and check date
+            const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+            const diffWeeks = Math.round((checkDate - anchor) / msPerWeek);
+            return diffWeeks % 2 === 0;
+        }
+
+        if (cadence === 'monthly') {
+            // Same occurrence-of-weekday in the month as the anchor
+            const anchorOccurrence = Math.ceil(anchor.getDate() / 7);
+            const checkOccurrence = Math.ceil(checkDate.getDate() / 7);
+            return anchorOccurrence === checkOccurrence;
+        }
+
+        return true;
+    }
+
+    _updateBins() {
+        const container = this.shadowRoot.querySelector('.bins-layer');
+        if (!container) return;
+        const bins = this._config.bins || [];
+        if (bins.length === 0) return;
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tonight = now.getHours() >= 17;
+
+        container.innerHTML = bins.map(bin => {
+            // Show if today is collection day, or from 5pm the night before
+            const show = this._isBinCollectionDay(bin, today) || (tonight && this._isBinCollectionDay(bin, tomorrow));
+            if (!show) return '';
+
+            const top = bin.y ?? 85;
+            const left = bin.x ?? 15;
+            const color = bin.color ?? '#888';
+            const label = bin.label ?? '';
+
+            return `
+              <div class="bin-badge" style="top: ${top}%; left: ${left}%;">
+                <div class="bin-icon" style="color: ${color};">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z"/>
+                  </svg>
+                </div>
+                ${label ? `<span class="bin-label" style="color: ${color};">${label}</span>` : ''}
               </div>`;
         }).join('');
     }
@@ -830,6 +939,57 @@ class ForkUHouseCard extends HTMLElement {
               50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.2); }
           }
 
+          /* SPRINKLER ZONES */
+          .sprinklers-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+          .sprinkler-zone {
+              position: absolute; transform: translate(-50%, -50%);
+              display: flex; flex-direction: column; align-items: center; gap: 2px;
+          }
+          .sprinkler-head { position: relative; display: flex; align-items: center; justify-content: center; }
+          .sprinkler-icon { font-size: 1rem; animation: sprinkler-rotate 2s linear infinite; }
+          .sprinkler-spray {
+              position: absolute; width: 30px; height: 30px;
+              border: 1px dashed; border-radius: 50%; opacity: 0;
+              animation: sprinkler-spray 2s ease-out infinite;
+          }
+          .sprinkler-spray.spray-2 { animation-delay: 0.66s; }
+          .sprinkler-spray.spray-3 { animation-delay: 1.33s; }
+          .sprinkler-small .sprinkler-spray { width: 20px; height: 20px; }
+          .sprinkler-small .sprinkler-icon { font-size: 0.7rem; }
+          .sprinkler-large .sprinkler-spray { width: 44px; height: 44px; }
+          .sprinkler-large .sprinkler-icon { font-size: 1.3rem; }
+          .sprinkler-label {
+              font-size: 0.5rem; color: #aaa; text-transform: uppercase;
+              background: rgba(20, 20, 25, 0.6); padding: 1px 5px; border-radius: 6px;
+              white-space: nowrap;
+          }
+          @keyframes sprinkler-rotate {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+          }
+          @keyframes sprinkler-spray {
+              0% { transform: scale(0.5); opacity: 0.6; }
+              100% { transform: scale(1.8); opacity: 0; }
+          }
+
+          /* BIN NIGHT */
+          .bins-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
+          .bin-badge {
+              position: absolute; transform: translate(-50%, -50%);
+              display: flex; flex-direction: column; align-items: center; gap: 2px;
+              animation: bin-appear 0.5s ease-out;
+          }
+          .bin-icon { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5)); }
+          .bin-label {
+              font-size: 0.5rem; font-weight: 700; text-transform: uppercase;
+              text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+              white-space: nowrap;
+          }
+          @keyframes bin-appear {
+              0% { opacity: 0; transform: translate(-50%, -30%); }
+              100% { opacity: 1; transform: translate(-50%, -50%); }
+          }
+
           .footer {
               position: absolute; bottom: 0; left: 0; width: 100%; z-index: 3;
               background: rgba(10, 10, 15, 0.25); backdrop-filter: blur(15px);
@@ -897,6 +1057,8 @@ class ForkUHouseCard extends HTMLElement {
           <canvas id="weatherCanvas"></canvas>
           <div class="badges-layer"></div>
           <div class="alerts-layer"></div>
+          <div class="sprinklers-layer"></div>
+          <div class="bins-layer"></div>
           <div class="footer" data-status="normal">
               <div class="median-pill">Dom: --</div>
               <div class="footer-content">${this._t('loading')}</div>

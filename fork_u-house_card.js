@@ -143,6 +143,12 @@ class ForkUHouseCard extends HTMLElement {
       if (!config.rooms || !Array.isArray(config.rooms)) throw new Error("Missing 'rooms' list.");
       this._config = config;
       this._lang = config.language || 'en';
+      // Reset energy state on config change
+      this._energyPrefsFetched = false;
+      this._energyPrefs = null;
+      this._energyCacheKey = null;
+      this._energyDirty = true;
+      this._energyLastUpdate = null;
       this._render();
     }
   
@@ -741,10 +747,12 @@ class ForkUHouseCard extends HTMLElement {
         }
         try {
             const prefs = await this._hass.callWS({ type: 'energy/get_prefs' });
+            console.log('[fork-u-house] Energy prefs:', JSON.stringify(prefs, null, 2));
             this._energyPrefsCache = prefs;
             this._energyPrefsCacheTime = now;
             return prefs;
         } catch (e) {
+            console.error('[fork-u-house] Energy prefs fetch failed:', e);
             return null;
         }
     }
@@ -843,6 +851,7 @@ class ForkUHouseCard extends HTMLElement {
         });
 
         // Manual nodes take priority, auto nodes fill gaps
+        console.log('[fork-u-house] Auto nodes resolved:', autoNodes.map(n => `${n.name}(${n.entity})`));
         return [...manualNodes, ...autoNodes];
     }
 

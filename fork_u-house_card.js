@@ -478,11 +478,53 @@ class ForkUHouseCard extends HTMLElement {
       }
     }
   
+    _evaluateVisibility(rule, value) {
+        // Supports: number, string, array, or object with operator
+        // show_when: 42              — exact match
+        // show_when: "on"            — string match
+        // show_when: [1, 2, 3]       — value in array
+        // show_when: { gt: 10 }      — greater than
+        // show_when: { lt: 50 }      — less than
+        // show_when: { gte: 10 }     — greater than or equal
+        // show_when: { lte: 50 }     — less than or equal
+        // show_when: { eq: 42 }      — equals
+        // show_when: { neq: 0 }      — not equals
+        // show_when: { range: [10, 50] } — between (inclusive)
+        if (rule === undefined || rule === null) return true;
+
+        if (Array.isArray(rule)) {
+            return rule.some(r => String(r).toLowerCase() === String(value).toLowerCase());
+        }
+
+        if (typeof rule === 'object') {
+            const v = parseFloat(value);
+            if (isNaN(v)) return false;
+            if (rule.gt !== undefined && !(v > rule.gt)) return false;
+            if (rule.lt !== undefined && !(v < rule.lt)) return false;
+            if (rule.gte !== undefined && !(v >= rule.gte)) return false;
+            if (rule.lte !== undefined && !(v <= rule.lte)) return false;
+            if (rule.eq !== undefined && !(v === rule.eq)) return false;
+            if (rule.neq !== undefined && !(v !== rule.neq)) return false;
+            if (rule.range !== undefined) {
+                if (!(v >= rule.range[0] && v <= rule.range[1])) return false;
+            }
+            return true;
+        }
+
+        // Simple value match (string or number)
+        return String(rule).toLowerCase() === String(value).toLowerCase();
+    }
+
     _updateBadges(rooms) {
       const container = this.shadowRoot.querySelector('.badges-layer');
       if (!container) return;
       container.innerHTML = rooms.map(room => {
         if (!room.valid) return '';
+        // Visibility check
+        if (room.show_when !== undefined) {
+            const state = this._hass.states[room.entity]?.state;
+            if (!this._evaluateVisibility(room.show_when, state)) return '';
+        }
         const top = room.y ?? 50; const left = room.x ?? 50;
         const unit = room.unit ?? '°';
         const { colorClass, colorStyle } = this._getBadgeColor(room);
@@ -537,14 +579,7 @@ class ForkUHouseCard extends HTMLElement {
             if (!state) return '';
 
             // Determine if alert is active
-            const showWhen = alert.show_when ?? 'on';
-            let active;
-            if (Array.isArray(showWhen)) {
-                active = showWhen.includes(state);
-            } else {
-                active = state.toLowerCase() === showWhen.toLowerCase();
-            }
-            if (!active) return '';
+            if (!this._evaluateVisibility(alert.show_when ?? 'on', state)) return '';
 
             const top = alert.y ?? 50;
             const left = alert.x ?? 50;
@@ -578,14 +613,7 @@ class ForkUHouseCard extends HTMLElement {
         container.innerHTML = sprinklers.map(zone => {
             const state = this._hass.states[zone.entity]?.state;
             if (!state) return '';
-            const showWhen = zone.show_when ?? 'on';
-            let active;
-            if (Array.isArray(showWhen)) {
-                active = showWhen.some(s => s.toLowerCase() === state.toLowerCase());
-            } else {
-                active = state.toLowerCase() === showWhen.toLowerCase();
-            }
-            if (!active) return '';
+            if (!this._evaluateVisibility(zone.show_when ?? 'on', state)) return '';
 
             const top = zone.y ?? 50;
             const left = zone.x ?? 50;

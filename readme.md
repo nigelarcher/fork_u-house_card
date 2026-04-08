@@ -177,6 +177,15 @@ rooms:
     x: 70
     y: 50
     weight: 0
+
+  # Only show solar badge when generating power
+  - name: "Solar Active"
+    entity: sensor.solar_power
+    unit: "W"
+    show_when: { gt: 0 }
+    x: 70
+    y: 50
+    weight: 0
 ```
 
 ### Room badge options
@@ -190,6 +199,27 @@ rooms:
 | `unit` | `°` | Display unit. Default uses temp colour coding |
 | `thresholds` | - | Array of 3 values defining 4 colour zones |
 | `colors` | - | Array of 4 hex colours matching the zones |
+| `show_when` | - | Visibility rule (see below). Omit for always-visible |
+
+### Visibility rules (`show_when`)
+
+The `show_when` option controls when a badge, alert, or sprinkler is visible. It works on **rooms**, **alerts**, and **sprinklers**.
+
+| Syntax | Example | Meaning |
+|---|---|---|
+| Exact match | `show_when: "on"` | Visible when state equals value |
+| Number match | `show_when: 42` | Visible when state equals number |
+| Array | `show_when: ["on", "active"]` | Visible when state matches any |
+| Greater than | `show_when: { gt: 0 }` | Visible when value > 0 |
+| Less than | `show_when: { lt: 100 }` | Visible when value < 100 |
+| Greater/equal | `show_when: { gte: 18 }` | Visible when value >= 18 |
+| Less/equal | `show_when: { lte: 50 }` | Visible when value <= 50 |
+| Equals | `show_when: { eq: 42 }` | Visible when value == 42 |
+| Not equals | `show_when: { neq: 0 }` | Visible when value != 0 |
+| Range | `show_when: { range: [10, 50] }` | Visible when 10 <= value <= 50 |
+| Combined | `show_when: { gt: 0, lt: 100 }` | All conditions must be true |
+
+Omit `show_when` for always-visible badges. Alerts and sprinklers default to `show_when: "on"` if not specified.
 
 ## Themed Days Calendar
 

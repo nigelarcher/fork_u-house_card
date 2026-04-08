@@ -668,30 +668,38 @@ class ForkUHouseCard extends HTMLElement {
 
             return `
               <div class="bin-badge" style="top: ${top}%; left: ${left}%;">
-                <svg class="bin-svg" viewBox="0 0 40 56" width="28" height="39" xmlns="http://www.w3.org/2000/svg">
-                  <!-- Isometric wheelie bin -->
-                  <!-- Wheels -->
-                  <ellipse cx="12" cy="52" rx="3" ry="1.5" fill="#222"/>
-                  <ellipse cx="28" cy="52" rx="3" ry="1.5" fill="#222"/>
-                  <!-- Bin body (dark grey, isometric perspective) -->
-                  <path d="M6 16 L10 50 L30 50 L34 16 Z" fill="#3a3a3a"/>
-                  <!-- Left face shadow -->
-                  <path d="M6 16 L10 50 L20 50 L16 16 Z" fill="#2e2e2e"/>
-                  <!-- Ridges -->
-                  <line x1="8" y1="24" x2="32" y2="24" stroke="#444" stroke-width="0.5"/>
-                  <line x1="8.5" y1="30" x2="31.5" y2="30" stroke="#444" stroke-width="0.5"/>
-                  <line x1="9" y1="36" x2="31" y2="36" stroke="#444" stroke-width="0.5"/>
-                  <line x1="9.5" y1="42" x2="30.5" y2="42" stroke="#444" stroke-width="0.5"/>
-                  <!-- Lid (coloured) -->
-                  <path d="M4 16 L36 16 L34 10 L6 10 Z" fill="${color}"/>
-                  <!-- Lid top highlight -->
-                  <path d="M6 10 L34 10 L32 8 L8 8 Z" fill="${color}" opacity="0.7"/>
-                  <!-- Handle -->
-                  <rect x="15" y="6" width="10" height="2" rx="1" fill="#555"/>
-                  <!-- Lid edge shadow -->
-                  <line x1="4" y1="16" x2="36" y2="16" stroke="rgba(0,0,0,0.3)" stroke-width="1"/>
-                  <!-- Body outline -->
-                  <path d="M6 16 L10 50 L30 50 L34 16" fill="none" stroke="rgba(0,0,0,0.2)" stroke-width="0.5"/>
+                <svg class="bin-svg" viewBox="0 0 48 56" width="32" height="37" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Isometric wheelie bin (viewed from ~30deg above-right) -->
+                  <!-- Ground shadow -->
+                  <ellipse cx="24" cy="53" rx="14" ry="3" fill="rgba(0,0,0,0.25)"/>
+                  <!-- Wheels (isometric) -->
+                  <ellipse cx="14" cy="49" rx="2.5" ry="1.2" fill="#1a1a1a"/>
+                  <ellipse cx="22" cy="51" rx="2.5" ry="1.2" fill="#1a1a1a"/>
+                  <!-- Right face (lighter, catching light) -->
+                  <path d="M26 15 L38 21 L36 47 L24 49 Z" fill="#444"/>
+                  <!-- Right face ridges -->
+                  <line x1="26.8" y1="21" x2="37.4" y2="26.5" stroke="#4f4f4f" stroke-width="0.5"/>
+                  <line x1="27.4" y1="27" x2="36.8" y2="32" stroke="#4f4f4f" stroke-width="0.5"/>
+                  <line x1="28" y1="33" x2="36.2" y2="37.5" stroke="#4f4f4f" stroke-width="0.5"/>
+                  <line x1="28.6" y1="39" x2="35.6" y2="43" stroke="#4f4f4f" stroke-width="0.5"/>
+                  <!-- Front face (darker) -->
+                  <path d="M8 17 L26 15 L24 49 L10 47 Z" fill="#333"/>
+                  <!-- Front face ridges -->
+                  <line x1="9" y1="23" x2="25.4" y2="21.5" stroke="#3d3d3d" stroke-width="0.5"/>
+                  <line x1="9.4" y1="29" x2="25" y2="27.5" stroke="#3d3d3d" stroke-width="0.5"/>
+                  <line x1="9.8" y1="35" x2="24.6" y2="33.5" stroke="#3d3d3d" stroke-width="0.5"/>
+                  <line x1="10.2" y1="41" x2="24.2" y2="39.5" stroke="#3d3d3d" stroke-width="0.5"/>
+                  <!-- Lid top (coloured, isometric diamond) -->
+                  <path d="M6 13 L24 9 L40 17 L26 15 Z" fill="${color}"/>
+                  <!-- Lid front edge -->
+                  <path d="M6 13 L8 17 L26 15 L6 13 Z" fill="${color}" opacity="0.6"/>
+                  <!-- Lid right edge -->
+                  <path d="M26 15 L38 21 L40 17 L26 15 Z" fill="${color}" opacity="0.45"/>
+                  <!-- Handle (on lid top) -->
+                  <path d="M14 11.5 L30 13" stroke="#555" stroke-width="1.5" stroke-linecap="round"/>
+                  <!-- Edge highlights -->
+                  <path d="M8 17 L26 15 L38 21" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="0.5"/>
+                  <path d="M6 13 L24 9 L40 17" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
                 </svg>
                 ${label ? `<span class="bin-label" style="color: ${color};">${label}</span>` : ''}
               </div>`;

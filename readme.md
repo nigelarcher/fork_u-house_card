@@ -221,6 +221,78 @@ The `show_when` option controls when a badge, alert, or sprinkler is visible. It
 
 Omit `show_when` for always-visible badges. Alerts and sprinklers default to `show_when: "on"` if not specified.
 
+## Energy Flow Overlay
+
+Power flow visualisation with animated dots between nodes, similar to the HA Energy Dashboard. Sources flow to a central home node, consumers flow from it. Dot count and speed scale with power values.
+
+### Auto-discovery modes
+
+The card can pull sources and consumers from your HA Energy Dashboard config:
+
+| Setting | Sources (solar/grid/battery) | Device consumers |
+|---|---|---|
+| `auto: true` | Yes | Yes |
+| `auto_sources: true` | Yes | No |
+| `auto_consumers: true` | No | Yes |
+| Neither | No | No (fully manual) |
+
+`auto_sources` / `auto_consumers` override `auto` when set. Both modes combine with manual `nodes:` — manual entities take priority, auto fills the rest.
+
+### Recommended setup (auto sources + manual consumers)
+
+```yaml
+energy:
+  auto_sources: true
+  update_interval: 30  # seconds between updates (default: 30)
+  home:
+    entity: sensor.home_consumption
+    icon: "mdi:home"
+    color: "#A78BFA"
+    x: 48
+    y: 40
+  node_positions:
+    solar: { x: 57, y: 12 }
+    grid: { x: 88, y: 55 }
+    battery: { x: 15, y: 30 }
+  nodes:
+    - name: A/C
+      entity: sensor.ac_power
+      icon: "mdi:air-conditioner"
+      color: "#FB923C"
+      direction: consumer
+      max: 5
+      show_when: { gt: 0.1 }
+      size: 30
+      x: 32
+      y: 58
+    - name: EV
+      entity: sensor.ev_charger_power
+      icon: "mdi:ev-station"
+      color: "#F87171"
+      direction: consumer
+      max: 7
+      show_when: { gt: 0 }
+      size: 30
+      x: 18
+      y: 72
+```
+
+### Energy node options
+
+| Option | Default | Description |
+|---|---|---|
+| `entity` | required | Power sensor entity |
+| `name` | - | Display label |
+| `icon` | `mdi:flash` | mdi icon or emoji |
+| `color` | `#888` | Node/line/dot colour |
+| `direction` | required | `source` (to home) or `consumer` (from home) |
+| `max` | `10` | Max expected value for scaling dot speed/count |
+| `unit` | `kW` | Display unit |
+| `size` | 44/30 | Circle diameter in px (44 for sources, 30 for consumers) |
+| `curvature` | `0.15` | Line curve amount (0 = straight) |
+| `show_when` | - | Visibility rule (same syntax as badges) |
+| `hide_zero` | `true` | Show dimmed when 0. Set `false` to hide entirely |
+
 ## Themed Days Calendar
 
 The card automatically shows themed images on special dates. No configuration needed (except birthdays).

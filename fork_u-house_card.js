@@ -755,7 +755,10 @@ class ForkUHouseCard extends HTMLElement {
         // Auto-discovered nodes fill in from HA energy prefs.
 
         const manualNodes = energyCfg.nodes || [];
-        if (!energyCfg.auto || !prefs) return manualNodes;
+        // auto: true is shorthand for both. Can also set individually.
+        const autoSources = energyCfg.auto_sources ?? energyCfg.auto ?? false;
+        const autoConsumers = energyCfg.auto_consumers ?? energyCfg.auto ?? false;
+        if ((!autoSources && !autoConsumers) || !prefs) return manualNodes;
 
         const positions = energyCfg.node_positions || {};
         const consumerPositions = energyCfg.consumer_positions || {};
@@ -773,7 +776,7 @@ class ForkUHouseCard extends HTMLElement {
             battery: { x: 15, y: 30, icon: 'mdi:battery', color: '#34D399', name: 'Battery' },
         };
 
-        sources.forEach(source => {
+        autoSources && sources.forEach(source => {
             if (source.type === 'solar') {
                 // Use stat_rate (power sensor) if available, fall back to energy sensor
                 const entity = source.stat_rate || source.config_entry_solar_forecast?.[0] || source.stat_energy_from;
@@ -816,6 +819,7 @@ class ForkUHouseCard extends HTMLElement {
         });
 
         // Device consumers from energy dashboard
+        if (!autoConsumers) return [...manualNodes, ...autoNodes];
         const devices = prefs.device_consumption || [];
         let consumerIdx = 0;
         const defaultConsumerSpots = [
@@ -857,8 +861,9 @@ class ForkUHouseCard extends HTMLElement {
         if (this._energyLastUpdate && now - this._energyLastUpdate < interval && !this._energyDirty) return;
         this._energyLastUpdate = now;
 
-        // Kick off async prefs fetch if auto mode (once, not on every update)
-        if (energyCfg.auto && !this._energyPrefsFetched) {
+        // Kick off async prefs fetch if any auto mode enabled (once)
+        const needsAutoFetch = energyCfg.auto || energyCfg.auto_sources || energyCfg.auto_consumers;
+        if (needsAutoFetch && !this._energyPrefsFetched) {
             this._energyPrefsFetched = true;
             this._fetchEnergyPrefs().then(prefs => {
                 this._energyPrefs = prefs;

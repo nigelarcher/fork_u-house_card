@@ -897,7 +897,9 @@ class ForkUHouseCard extends HTMLElement {
         const getKw = (entityId, cfgUnit) => {
             const raw = this._getStateVal(entityId) ?? 0;
             if (cfgUnit) return { val: raw, unit: cfgUnit }; // manual unit override
-            const haUnit = this._hass.states[entityId]?.attributes?.unit_of_measurement ?? '';
+            const stateObj = this._hass.states[entityId];
+            const haUnit = stateObj?.attributes?.unit_of_measurement ?? '';
+            console.log(`[fork-u-house] getKw: ${entityId} = ${raw} ${haUnit} (state: ${stateObj?.state})`);
             if (haUnit === 'W' || haUnit === 'Wh') return { val: raw / 1000, unit: 'kW' };
             if (haUnit === 'kW' || haUnit === 'kWh') return { val: raw, unit: 'kW' };
             return { val: raw, unit: haUnit || 'kW' };

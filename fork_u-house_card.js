@@ -546,14 +546,24 @@ class ForkUHouseCard extends HTMLElement {
 
             const top = alert.y ?? 50;
             const left = alert.x ?? 50;
-            const icon = alert.icon ?? '!';
-            const color = alert.color ?? '#F87171';
+            const rawIcon = alert.icon ?? '!';
+            const color = alert.color ?? null;
             const label = alert.label ?? '';
-            const pulse = alert.pulse !== false ? 'alert-pulse' : '';
+            const pulse = alert.pulse !== false && color ? 'alert-pulse' : '';
+
+            // Support mdi: icons (rendered as HA icon element) or emoji/text
+            const mdiColor = color ? '#fff' : '#ccc';
+            const iconContent = rawIcon.startsWith('mdi:')
+                ? `<ha-icon icon="${rawIcon}" style="--mdc-icon-size: 14px; color: ${mdiColor};"></ha-icon>`
+                : rawIcon;
+
+            const iconStyle = color
+                ? `style="background: ${color}; box-shadow: 0 0 8px ${color};"`
+                : `style="background: transparent;"`;
 
             return `
               <div class="alert-badge ${pulse}" style="top: ${top}%; left: ${left}%;">
-                <div class="alert-icon" style="background: ${color}; box-shadow: 0 0 8px ${color};">${icon}</div>
+                <div class="alert-icon" ${iconStyle}>${iconContent}</div>
                 ${label ? `<span class="alert-label">${label}</span>` : ''}
               </div>`;
         }).join('');

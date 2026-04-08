@@ -547,7 +547,7 @@ class ForkUHouseCard extends HTMLElement {
             const top = alert.y ?? 50;
             const left = alert.x ?? 50;
             const rawIcon = alert.icon ?? '!';
-            const color = alert.color ?? null;
+            const color = alert.color || null;
             const label = alert.label ?? '';
             const pulse = alert.pulse !== false && color ? 'alert-pulse' : '';
 

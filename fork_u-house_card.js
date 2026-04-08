@@ -851,6 +851,12 @@ class ForkUHouseCard extends HTMLElement {
             return;
         }
 
+        // Throttle: only process every 30 seconds
+        const now = Date.now();
+        const interval = (energyCfg.update_interval ?? 30) * 1000;
+        if (this._energyLastUpdate && now - this._energyLastUpdate < interval && !this._energyDirty) return;
+        this._energyLastUpdate = now;
+
         // Kick off async prefs fetch if auto mode (once, not on every update)
         if (energyCfg.auto && !this._energyPrefsFetched) {
             this._energyPrefsFetched = true;

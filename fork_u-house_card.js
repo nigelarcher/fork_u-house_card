@@ -467,6 +467,7 @@ class ForkUHouseCard extends HTMLElement {
       this._updateAlerts();
       this._updateSprinklers();
       this._updateBins();
+      this._updateEnergy();
       this._handleGamingMode();
       this._handleDayNight();
       this._generateAIStatus(median);
@@ -729,6 +730,275 @@ class ForkUHouseCard extends HTMLElement {
                 ${label ? `<span class="bin-label" style="color: ${color};">${label}</span>` : ''}
               </div>`;
         }).join('');
+        if (container.innerHTML !== html) container.innerHTML = html;
+    }
+
+    async _fetchEnergyPrefs() {
+        // Cache for 60s to avoid hammering the websocket
+        const now = Date.now();
+        if (this._energyPrefsCache && now - this._energyPrefsCacheTime < 60000) {
+            return this._energyPrefsCache;
+        }
+        try {
+            const prefs = await this._hass.callWS({ type: 'energy/get_prefs' });
+            this._energyPrefsCache = prefs;
+            this._energyPrefsCacheTime = now;
+            return prefs;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    _resolveEnergyNodes(energyCfg, prefs) {
+        // Merge HA energy dashboard auto-discovered nodes with manual config.
+        // Manual nodes in energyCfg.nodes always take priority.
+        // Auto-discovered nodes fill in from HA energy prefs.
+
+        const manualNodes = energyCfg.nodes || [];
+        if (!energyCfg.auto || !prefs) return manualNodes;
+
+        const positions = energyCfg.node_positions || {};
+        const consumerPositions = energyCfg.consumer_positions || {};
+
+        // Track which entities are already manually configured
+        const manualEntities = new Set(manualNodes.map(n => n.entity));
+
+        const autoNodes = [];
+        const sources = prefs.energy_sources || [];
+
+        // Default positions for auto-discovered sources (spread around the house)
+        const defaultSourcePositions = {
+            solar: { x: 57, y: 12, icon: 'mdi:solar-power', color: '#FBBF24', name: 'Solar' },
+            grid: { x: 88, y: 55, icon: 'mdi:transmission-tower', color: '#60A5FA', name: 'Grid' },
+            battery: { x: 15, y: 30, icon: 'mdi:battery', color: '#34D399', name: 'Battery' },
+        };
+
+        sources.forEach(source => {
+            if (source.type === 'solar') {
+                // Use stat_rate (power sensor) if available, fall back to energy sensor
+                const entity = source.stat_rate || source.config_entry_solar_forecast?.[0] || source.stat_energy_from;
+                if (!entity || manualEntities.has(entity)) return;
+                const pos = positions.solar || defaultSourcePositions.solar;
+                autoNodes.push({
+                    entity, direction: 'source', max: 10,
+                    ...defaultSourcePositions.solar, ...pos,
+                });
+            } else if (source.type === 'grid') {
+                // Grid import
+                const importEntity = source.power_config?.stat_rate_from || source.power_config?.stat_rate || source.stat_energy_from;
+                if (importEntity && !manualEntities.has(importEntity)) {
+                    const pos = positions.grid || defaultSourcePositions.grid;
+                    autoNodes.push({
+                        entity: importEntity, direction: 'source', max: 8,
+                        ...defaultSourcePositions.grid, ...pos,
+                    });
+                }
+                // Grid export (shown as consumer from home's perspective)
+                const exportEntity = source.power_config?.stat_rate_to || source.stat_energy_to;
+                if (exportEntity && !manualEntities.has(exportEntity)) {
+                    const pos = positions.grid_export || { x: 90, y: 45, icon: 'mdi:transmission-tower-export', color: '#34D399', name: 'Export' };
+                    autoNodes.push({
+                        entity: exportEntity, direction: 'consumer', max: 10,
+                        ...pos,
+                    });
+                }
+            } else if (source.type === 'battery') {
+                // Battery discharge (source) — use power sensor if available
+                const dischargeEntity = source.power_config?.stat_rate_from || source.power_config?.stat_rate || source.stat_energy_from;
+                if (dischargeEntity && !manualEntities.has(dischargeEntity)) {
+                    const pos = positions.battery || defaultSourcePositions.battery;
+                    autoNodes.push({
+                        entity: dischargeEntity, direction: 'source', max: 5,
+                        ...defaultSourcePositions.battery, ...pos,
+                    });
+                }
+            }
+        });
+
+        // Device consumers from energy dashboard
+        const devices = prefs.device_consumption || [];
+        let consumerIdx = 0;
+        const defaultConsumerSpots = [
+            { x: 30, y: 60 }, { x: 20, y: 72 }, { x: 70, y: 70 },
+            { x: 35, y: 80 }, { x: 60, y: 65 }, { x: 75, y: 80 },
+        ];
+
+        devices.forEach(device => {
+            const entity = device.stat_rate || device.stat_consumption;
+            if (!entity || manualEntities.has(entity)) return;
+            const pos = consumerPositions[entity] || consumerPositions[device.stat_consumption] || {};
+            const defaultPos = defaultConsumerSpots[consumerIdx % defaultConsumerSpots.length];
+            consumerIdx++;
+            autoNodes.push({
+                entity, direction: 'consumer', max: 3, size: 30,
+                icon: 'mdi:flash', color: '#FB923C',
+                name: device.name || entity.split('.').pop().replace(/_/g, ' '),
+                x: defaultPos.x, y: defaultPos.y,
+                ...pos,
+            });
+        });
+
+        // Manual nodes take priority, auto nodes fill gaps
+        return [...manualNodes, ...autoNodes];
+    }
+
+    _updateEnergy() {
+        const container = this.shadowRoot.querySelector('.energy-layer');
+        if (!container) return;
+        const energyCfg = this._config.energy;
+        if (!energyCfg || !energyCfg.home) {
+            if (container.innerHTML) container.innerHTML = '';
+            return;
+        }
+
+        // Kick off async prefs fetch if auto mode
+        if (energyCfg.auto && !this._energyPrefsLoading) {
+            this._energyPrefsLoading = true;
+            this._fetchEnergyPrefs().then(prefs => {
+                this._energyPrefsLoading = false;
+                this._energyPrefs = prefs;
+                this._updateEnergy(); // re-render with prefs
+            });
+            // On first call with no cache, show manual nodes only
+            if (!this._energyPrefs && (!energyCfg.nodes || energyCfg.nodes.length === 0)) return;
+        }
+
+        const resolvedNodes = this._resolveEnergyNodes(energyCfg, this._energyPrefs);
+        if (resolvedNodes.length === 0 && !energyCfg.home.entity) {
+            if (container.innerHTML) container.innerHTML = '';
+            return;
+        }
+
+        const card = this.shadowRoot.querySelector('.card');
+        if (!card) return;
+        const w = card.offsetWidth || 800;
+        const h = card.offsetHeight || 533;
+
+        // Get home node config and value
+        const homeCfg = energyCfg.home;
+        const homeVal = this._getStateVal(homeCfg.entity) ?? 0;
+        const homeX = (homeCfg.x ?? 50) / 100 * w;
+        const homeY = (homeCfg.y ?? 40) / 100 * h;
+        const homeColor = homeCfg.color ?? '#A78BFA';
+        const homeIcon = homeCfg.icon ?? 'mdi:home';
+        const homeUnit = homeCfg.unit ?? 'kW';
+
+        // Build SVG paths and dots, plus node HTML
+        let svgPaths = '';
+        let svgDots = '';
+        let nodesHtml = '';
+
+        resolvedNodes.forEach((node, idx) => {
+            const val = this._getStateVal(node.entity) ?? 0;
+            const absVal = Math.abs(val);
+            const max = node.max ?? 10;
+            const color = node.color ?? '#888';
+            const icon = node.icon ?? 'mdi:flash';
+            const unit = node.unit ?? 'kW';
+            const label = node.name ?? '';
+            const nx = (node.x ?? 50) / 100 * w;
+            const ny = (node.y ?? 50) / 100 * h;
+            const isSource = node.direction === 'source';
+            const showWhen = node.show_when;
+            const nodeSize = node.size ?? (isSource ? 44 : 30);
+
+            // Visibility check
+            if (showWhen !== undefined) {
+                const state = this._hass.states[node.entity]?.state;
+                if (!this._evaluateVisibility(showWhen, state)) return;
+            }
+
+            // Skip if zero and hide_zero is set
+            if (absVal === 0 && node.hide_zero !== false) {
+                // Still show node but dimmed
+                const dimIcon = icon.startsWith('mdi:')
+                    ? `<ha-icon icon="${icon}" style="--mdc-icon-size: ${nodeSize * 0.45}px; color: #555;"></ha-icon>`
+                    : `<span style="font-size:${nodeSize * 0.45}px; color: #555;">${icon}</span>`;
+                nodesHtml += `
+                  <div class="energy-node energy-off" style="top: ${node.y ?? 50}%; left: ${node.x ?? 50}%;">
+                    <div class="enode-circle" style="width:${nodeSize}px; height:${nodeSize}px; border-color: #444;">
+                      ${dimIcon}
+                    </div>
+                    <span class="enode-value">0 ${unit}</span>
+                    ${label ? `<span class="enode-label">${label}</span>` : ''}
+                  </div>`;
+                return;
+            }
+
+            // Flow path: source -> home or home -> consumer
+            const pathId = `epath-${idx}`;
+            let x1, y1, x2, y2;
+            if (isSource) {
+                x1 = nx; y1 = ny; x2 = homeX; y2 = homeY;
+            } else {
+                x1 = homeX; y1 = homeY; x2 = nx; y2 = ny;
+            }
+
+            // Curved path with perpendicular offset
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const curvature = node.curvature ?? 0.15;
+            const cx = midX - dy * curvature;
+            const cy = midY + dx * curvature;
+
+            svgPaths += `<path id="${pathId}" d="M ${x1} ${y1} Q ${cx} ${cy}, ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.25"/>`;
+
+            // Animated dots — count and speed based on power
+            const intensity = Math.min(absVal / max, 1);
+            const dotCount = Math.max(1, Math.round(intensity * 4));
+            const duration = 3 - intensity * 2; // 3s at 0, 1s at max
+
+            for (let d = 0; d < dotCount; d++) {
+                const delay = (d / dotCount) * duration;
+                svgDots += `<circle r="${2 + intensity}" fill="${color}" opacity="${0.6 + intensity * 0.4}">
+                    <animateMotion dur="${duration}s" begin="${delay}s" repeatCount="indefinite">
+                      <mpath href="#${pathId}"/>
+                    </animateMotion>
+                  </circle>`;
+            }
+
+            // Node circle
+            const iconHtml = icon.startsWith('mdi:')
+                ? `<ha-icon icon="${icon}" style="--mdc-icon-size: ${nodeSize * 0.45}px; color: ${color};"></ha-icon>`
+                : `<span style="font-size:${nodeSize * 0.45}px;">${icon}</span>`;
+
+            const sizeClass = isSource ? 'enode-source' : 'enode-consumer';
+            nodesHtml += `
+              <div class="energy-node ${sizeClass}" style="top: ${node.y ?? 50}%; left: ${node.x ?? 50}%;">
+                <div class="enode-circle" style="width:${nodeSize}px; height:${nodeSize}px; border-color: ${color};">
+                  <div class="enode-glow" style="background: radial-gradient(circle, ${color}66 0%, transparent 70%);"></div>
+                  ${iconHtml}
+                </div>
+                <span class="enode-value" style="border-color: ${color}44;">${absVal.toFixed(1)} ${unit}</span>
+                ${label ? `<span class="enode-label">${label}</span>` : ''}
+              </div>`;
+        });
+
+        // Home node
+        const homeIconHtml = homeIcon.startsWith('mdi:')
+            ? `<ha-icon icon="${homeIcon}" style="--mdc-icon-size: 24px; color: ${homeColor};"></ha-icon>`
+            : `<span style="font-size:1.4rem;">${homeIcon}</span>`;
+
+        const homeNodeHtml = `
+          <div class="energy-node enode-home" style="top: ${homeCfg.y ?? 40}%; left: ${homeCfg.x ?? 50}%;">
+            <div class="enode-circle" style="width:52px; height:52px; border-color: ${homeColor};">
+              <div class="enode-glow" style="background: radial-gradient(circle, ${homeColor}55 0%, transparent 70%);"></div>
+              ${homeIconHtml}
+            </div>
+            <span class="enode-value" style="border-color: ${homeColor}44;">${homeVal.toFixed(1)} ${homeUnit}</span>
+            ${homeCfg.name ? `<span class="enode-label">${homeCfg.name}</span>` : '<span class="enode-label">Home</span>'}
+          </div>`;
+
+        const html = `
+          <svg class="energy-svg" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+            ${svgPaths}
+            ${svgDots}
+          </svg>
+          ${homeNodeHtml}
+          ${nodesHtml}`;
+
         if (container.innerHTML !== html) container.innerHTML = html;
     }
 
@@ -1039,6 +1309,50 @@ class ForkUHouseCard extends HTMLElement {
               white-space: nowrap;
           }
 
+          /* ENERGY FLOW */
+          .energy-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
+          .energy-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+          .energy-node {
+              position: absolute; transform: translate(-50%, -50%);
+              display: flex; flex-direction: column; align-items: center; gap: 3px;
+              pointer-events: none;
+          }
+          .enode-circle {
+              border-radius: 50%;
+              background: rgba(15, 15, 20, 0.85);
+              backdrop-filter: blur(8px);
+              border: 2px solid;
+              display: flex; align-items: center; justify-content: center;
+              box-shadow: 0 0 10px rgba(0,0,0,0.4);
+              position: relative;
+          }
+          .enode-glow {
+              position: absolute; width: 100%; height: 100%; border-radius: 50%;
+          }
+          .enode-source .enode-glow { animation: enode-source-pulse 2.5s ease-in-out infinite; }
+          .enode-consumer .enode-glow { animation: enode-consumer-pulse 3s ease-in-out infinite; }
+          .enode-home .enode-glow { animation: enode-source-pulse 3s ease-in-out infinite; }
+          @keyframes enode-source-pulse {
+              0%, 100% { transform: scale(0.8); opacity: 0.3; }
+              50% { transform: scale(1.5); opacity: 0.6; }
+          }
+          @keyframes enode-consumer-pulse {
+              0%, 100% { transform: scale(1.1); opacity: 0.2; }
+              50% { transform: scale(0.9); opacity: 0.45; }
+          }
+          .enode-value {
+              font-size: 0.6rem; font-weight: 700; color: #fff;
+              background: rgba(15, 15, 20, 0.85);
+              backdrop-filter: blur(6px);
+              border: 1px solid rgba(255,255,255,0.1);
+              padding: 2px 7px; border-radius: 10px; white-space: nowrap;
+          }
+          .enode-label {
+              font-size: 0.42rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px;
+          }
+          .energy-off .enode-circle { border-color: #444 !important; }
+          .energy-off .enode-value { opacity: 0.4; }
+
           .footer {
               position: absolute; bottom: 0; left: 0; width: 100%; z-index: 3;
               background: rgba(10, 10, 15, 0.25); backdrop-filter: blur(15px);
@@ -1108,6 +1422,7 @@ class ForkUHouseCard extends HTMLElement {
           <div class="alerts-layer"></div>
           <div class="sprinklers-layer"></div>
           <div class="bins-layer"></div>
+          <div class="energy-layer"></div>
           <div class="footer" data-status="normal">
               <div class="median-pill">Dom: --</div>
               <div class="footer-content">${this._t('loading')}</div>

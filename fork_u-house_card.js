@@ -668,11 +668,31 @@ class ForkUHouseCard extends HTMLElement {
 
             return `
               <div class="bin-badge" style="top: ${top}%; left: ${left}%;">
-                <div class="bin-icon" style="color: ${color};">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z"/>
-                  </svg>
-                </div>
+                <svg class="bin-svg" viewBox="0 0 40 56" width="28" height="39" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Isometric wheelie bin -->
+                  <!-- Wheels -->
+                  <ellipse cx="12" cy="52" rx="3" ry="1.5" fill="#222"/>
+                  <ellipse cx="28" cy="52" rx="3" ry="1.5" fill="#222"/>
+                  <!-- Bin body (dark grey, isometric perspective) -->
+                  <path d="M6 16 L10 50 L30 50 L34 16 Z" fill="#3a3a3a"/>
+                  <!-- Left face shadow -->
+                  <path d="M6 16 L10 50 L20 50 L16 16 Z" fill="#2e2e2e"/>
+                  <!-- Ridges -->
+                  <line x1="8" y1="24" x2="32" y2="24" stroke="#444" stroke-width="0.5"/>
+                  <line x1="8.5" y1="30" x2="31.5" y2="30" stroke="#444" stroke-width="0.5"/>
+                  <line x1="9" y1="36" x2="31" y2="36" stroke="#444" stroke-width="0.5"/>
+                  <line x1="9.5" y1="42" x2="30.5" y2="42" stroke="#444" stroke-width="0.5"/>
+                  <!-- Lid (coloured) -->
+                  <path d="M4 16 L36 16 L34 10 L6 10 Z" fill="${color}"/>
+                  <!-- Lid top highlight -->
+                  <path d="M6 10 L34 10 L32 8 L8 8 Z" fill="${color}" opacity="0.7"/>
+                  <!-- Handle -->
+                  <rect x="15" y="6" width="10" height="2" rx="1" fill="#555"/>
+                  <!-- Lid edge shadow -->
+                  <line x1="4" y1="16" x2="36" y2="16" stroke="rgba(0,0,0,0.3)" stroke-width="1"/>
+                  <!-- Body outline -->
+                  <path d="M6 16 L10 50 L30 50 L34 16" fill="none" stroke="rgba(0,0,0,0.2)" stroke-width="0.5"/>
+                </svg>
                 ${label ? `<span class="bin-label" style="color: ${color};">${label}</span>` : ''}
               </div>`;
         }).join('');
@@ -979,7 +999,7 @@ class ForkUHouseCard extends HTMLElement {
               position: absolute; transform: translate(-50%, -50%);
               display: flex; flex-direction: column; align-items: center; gap: 2px;
           }
-          .bin-icon { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5)); }
+          .bin-svg { filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6)); }
           .bin-label {
               font-size: 0.5rem; font-weight: 700; text-transform: uppercase;
               text-shadow: 0 1px 2px rgba(0,0,0,0.8);

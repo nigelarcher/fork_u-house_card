@@ -455,7 +455,7 @@ class ForkUHouseCard extends HTMLElement {
         return { ...r, value: v, valid: v !== null && !isNaN(v) };
       });
       
-      const weighted = roomsData.filter(r => r.valid && (r.weight === undefined || r.weight > 0)).map(r => r.value).sort((a,b)=>a-b);
+      const weighted = roomsData.filter(r => r.valid && (r.weight === undefined || r.weight > 0) && (r.unit === undefined || r.unit === '°')).map(r => r.value).sort((a,b)=>a-b);
       let median = 0;
       if (weighted.length > 0) {
         const mid = Math.floor(weighted.length/2);
@@ -481,20 +481,48 @@ class ForkUHouseCard extends HTMLElement {
       container.innerHTML = rooms.map(room => {
         if (!room.valid) return '';
         const top = room.y ?? 50; const left = room.x ?? 50;
-        const colorClass = this._getTempColorClass(room.value);
+        const unit = room.unit ?? '°';
+        const { colorClass, colorStyle } = this._getBadgeColor(room);
         return `
           <div class="badge ${colorClass}" style="top: ${top}%; left: ${left}%;">
-            <div class="badge-dot"></div>
+            <div class="badge-dot" ${colorStyle}></div>
             <div class="badge-content">
               <span class="badge-name">${room.name}</span>
-              <span class="badge-val">${room.value.toFixed(1)}°</span>
+              <span class="badge-val">${room.value.toFixed(1)}${unit}</span>
             </div>
           </div>`;
       }).join('');
     }
     
-    _getTempColorClass(t) {
-      if (t < 19) return 'is-cold'; if (t < 23) return 'is-optimal'; if (t < 25) return 'is-warm'; return 'is-hot';
+    _getBadgeColor(room) {
+        // Custom thresholds & colors per room:
+        //   thresholds: [low, mid, high]   — 3 boundaries = 4 zones
+        //   colors: [color1, color2, color3, color4] — one per zone
+        // Falls back to global temp_thresholds config, then defaults.
+        const v = room.value;
+
+        if (room.thresholds && room.colors) {
+            const t = room.thresholds;
+            const c = room.colors;
+            let color;
+            if (v < t[0]) color = c[0];
+            else if (v < t[1]) color = c[1] ?? c[0];
+            else if (v < t[2]) color = c[2] ?? c[1] ?? c[0];
+            else color = c[3] ?? c[2] ?? c[1] ?? c[0];
+            return { colorClass: '', colorStyle: `style="background:${color}; box-shadow: 0 0 5px ${color};"` };
+        }
+
+        // No custom config — use temp classes (only for ° unit)
+        if ((room.unit ?? '°') !== '°') {
+            return { colorClass: 'is-neutral', colorStyle: '' };
+        }
+
+        // Default temp thresholds — configurable globally via temp_thresholds
+        const defaults = this._config.temp_thresholds || [18, 24, 30, 35];
+        if (v < defaults[0]) return { colorClass: 'is-cold', colorStyle: '' };
+        if (v < defaults[1]) return { colorClass: 'is-optimal', colorStyle: '' };
+        if (v < defaults[2]) return { colorClass: 'is-warm', colorStyle: '' };
+        return { colorClass: 'is-hot', colorStyle: '' };
     }
 
     _handleGamingMode() {
@@ -602,7 +630,7 @@ class ForkUHouseCard extends HTMLElement {
             }
             else if (temp < 5) {
                 msg = this._t('advice_cold', {val: temp});
-            } else if (temp > 28) {
+            } else if (temp > 35) {
                 msg = this._t('advice_hot', {val: temp}); 
                 level = "warn";
             } 
@@ -729,6 +757,7 @@ class ForkUHouseCard extends HTMLElement {
           .is-optimal .badge-dot { background: var(--color-opt); box-shadow: 0 0 5px var(--color-opt); }
           .is-warm .badge-dot { background: var(--color-warm); box-shadow: 0 0 5px var(--color-warm); }
           .is-hot .badge-dot { background: var(--color-hot); box-shadow: 0 0 5px var(--color-hot); }
+          .is-neutral .badge-dot { background: #888; box-shadow: 0 0 5px #888; }
           .badge-content { display: flex; flex-direction: column; line-height: 1; }
           .badge-name { font-size: 0.55rem; color: #aaa; text-transform: uppercase; margin-bottom: 2px; }
           .badge-val { font-size: 0.80rem; font-weight: 700; color: #fff; }

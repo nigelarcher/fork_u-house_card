@@ -780,8 +780,9 @@ class ForkUHouseCard extends HTMLElement {
         const positions = energyCfg.node_positions || {};
         const consumerPositions = energyCfg.consumer_positions || {};
 
-        // Track which entities are already manually configured
+        // Track which entities and types are already manually configured
         const manualEntities = new Set(manualNodes.map(n => n.entity));
+        const manualTypes = new Set(manualNodes.filter(n => n.replaces).map(n => n.replaces));
 
         const autoNodes = [];
         const sources = prefs.energy_sources || [];
@@ -794,8 +795,10 @@ class ForkUHouseCard extends HTMLElement {
         };
 
         autoSources && sources.forEach(source => {
+            // Skip if manual node replaces this type
+            if (manualTypes.has(source.type)) return;
+
             if (source.type === 'solar') {
-                // Use stat_rate (power sensor) if available, fall back to energy sensor
                 const entity = source.stat_rate || source.config_entry_solar_forecast?.[0] || source.stat_energy_from;
                 if (!entity || manualEntities.has(entity)) return;
                 const pos = positions.solar || defaultSourcePositions.solar;
@@ -804,7 +807,6 @@ class ForkUHouseCard extends HTMLElement {
                     ...defaultSourcePositions.solar, ...pos,
                 });
             } else if (source.type === 'grid') {
-                // Grid import
                 const importEntity = source.power_config?.stat_rate_from || source.power_config?.stat_rate || source.stat_energy_from;
                 if (importEntity && !manualEntities.has(importEntity)) {
                     const pos = positions.grid || defaultSourcePositions.grid;
@@ -814,7 +816,6 @@ class ForkUHouseCard extends HTMLElement {
                     });
                 }
             } else if (source.type === 'battery') {
-                // Battery discharge (source) — use power sensor if available
                 const dischargeEntity = source.power_config?.stat_rate_from || source.power_config?.stat_rate || source.stat_energy_from;
                 if (dischargeEntity && !manualEntities.has(dischargeEntity)) {
                     const pos = positions.battery || defaultSourcePositions.battery;
@@ -947,8 +948,10 @@ class ForkUHouseCard extends HTMLElement {
             const nx = (node.x ?? 50) / 100 * w;
             const ny = (node.y ?? 50) / 100 * h;
             const configIsSource = node.direction === 'source';
-            // Flip direction based on sign: negative source = charging (consumer), negative consumer = producing
-            const isSource = val >= 0 ? configIsSource : !configIsSource;
+            // Flip direction based on sign: negative value = reverse flow
+            // reverse: true inverts the sign convention for sensors that report positive for charging
+            const effectiveVal = node.reverse ? -val : val;
+            const isSource = effectiveVal >= 0 ? configIsSource : !configIsSource;
             const showWhen = node.show_when;
             const nodeSize = node.size ?? (configIsSource ? 44 : 30);
 
@@ -975,12 +978,16 @@ class ForkUHouseCard extends HTMLElement {
                 return;
             }
 
-            // Flow path: source -> home or home -> consumer
+            // Flow path direction: dots animate from start to end of path
+            // source: node → home (producing), consumer: home → node (consuming)
+            // When sign flips (isSource !== configIsSource), direction reverses
             const pathId = `epath-${idx}`;
             let x1, y1, x2, y2;
             if (isSource) {
+                // Producing: dots flow from this node to home
                 x1 = nx; y1 = ny; x2 = homeX; y2 = homeY;
             } else {
+                // Consuming: dots flow from home to this node
                 x1 = homeX; y1 = homeY; x2 = nx; y2 = ny;
             }
 
@@ -1042,7 +1049,7 @@ class ForkUHouseCard extends HTMLElement {
                   <div class="enode-glow" style="background: radial-gradient(circle, ${color}66 0%, transparent 70%);"></div>
                   ${iconHtml}
                 </div>
-                <span class="enode-value" style="border-color: ${color}44;">${extraValue}${absVal.toFixed(1)} ${unit}</span>
+                <span class="enode-value" style="border-color: ${color}44;">${extraValue}${absVal.toFixed(1)} ${unit}${isSource !== configIsSource ? (isSource ? ' &#x25B2;' : ' &#x25BC;') : ''}</span>
                 ${label ? `<span class="enode-label">${label}</span>` : ''}
               </div>`;
         });

@@ -445,6 +445,7 @@ class ForkUHouseCard extends HTMLElement {
       this._editMode = this._editModeConfig
           || !!this.closest('hui-card-preview')
           || !!this.closest('hui-card-editor')
+          || !!this.closest('.element-preview')
           || !!this.parentElement?.closest('.edit-mode')
           || !!document.querySelector('hui-dialog-edit-card');
 

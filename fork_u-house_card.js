@@ -143,7 +143,7 @@ class ForkUHouseCard extends HTMLElement {
       if (!config.rooms || !Array.isArray(config.rooms)) throw new Error("Missing 'rooms' list.");
       this._config = config;
       this._lang = config.language || 'en';
-      this._editModeConfig = !!config.__editMode || !!config.__configElement;
+      this._editMode = false;
       // Reset energy state on config change
       this._energyPrefsFetched = false;
       this._energyPrefs = null;
@@ -441,19 +441,16 @@ class ForkUHouseCard extends HTMLElement {
     _updateData() {
       if (!this._hass || !this.shadowRoot.querySelector('.card')) return;
 
-      // Detect edit mode — walk up through shadow DOM boundaries
-      if (!this._editModeConfig) {
+      // Detect edit mode — walk up through shadow DOM boundaries (cache result)
+      if (this._editModeChecked === undefined) {
           let el = this;
           this._editMode = false;
           while (el) {
               if (el.classList?.contains('element-preview') ||
-                  el.classList?.contains('edit-mode') ||
-                  el.tagName?.toLowerCase() === 'hui-card-preview' ||
-                  el.tagName?.toLowerCase() === 'hui-card-editor') {
+                  el.tagName?.toLowerCase() === 'hui-card-preview') {
                   this._editMode = true;
                   break;
               }
-              // Walk up: parentElement within same DOM, getRootNode().host to cross shadow boundary
               if (el.parentElement) {
                   el = el.parentElement;
               } else {
@@ -461,8 +458,7 @@ class ForkUHouseCard extends HTMLElement {
                   el = root?.host ?? null;
               }
           }
-      } else {
-          this._editMode = true;
+          this._editModeChecked = true;
       }
 
       // --- DYNAMIC BACKGROUND UPDATE ---

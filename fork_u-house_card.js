@@ -143,6 +143,7 @@ class ForkUHouseCard extends HTMLElement {
       if (!config.rooms || !Array.isArray(config.rooms)) throw new Error("Missing 'rooms' list.");
       this._config = config;
       this._lang = config.language || 'en';
+      this._editMode = !!config.__editMode;
       // Reset energy state on config change
       this._energyPrefsFetched = false;
       this._energyPrefs = null;
@@ -543,16 +544,21 @@ class ForkUHouseCard extends HTMLElement {
       if (!container) return;
       const html = rooms.map(room => {
         if (!room.valid) return '';
-        // Visibility check
+        // Visibility check (in edit mode, show hidden items at reduced opacity)
+        let editHidden = false;
         if (room.show_when !== undefined) {
             const state = this._hass.states[room.entity]?.state;
-            if (!this._evaluateVisibility(room.show_when, state)) return '';
+            if (!this._evaluateVisibility(room.show_when, state)) {
+                if (!this._editMode) return '';
+                editHidden = true;
+            }
         }
         const top = room.y ?? 50; const left = room.x ?? 50;
         const unit = room.unit ?? '°';
         const { colorClass, colorStyle } = this._getBadgeColor(room);
+        const editStyle = editHidden ? ' opacity: 0.3; outline: 1px dashed rgba(255,255,255,0.3);' : '';
         return `
-          <div class="badge ${colorClass}" style="top: ${top}%; left: ${left}%;">
+          <div class="badge ${colorClass}" style="top: ${top}%; left: ${left}%;${editStyle}">
             <div class="badge-dot" ${colorStyle}></div>
             <div class="badge-content">
               <span class="badge-name">${room.name}</span>
@@ -600,17 +606,21 @@ class ForkUHouseCard extends HTMLElement {
         const alerts = this._config.alerts || [];
         const html = alerts.map(alert => {
             const state = this._hass.states[alert.entity]?.state;
-            if (!state) return '';
+            if (!state && !this._editMode) return '';
 
             // Determine if alert is active
-            if (!this._evaluateVisibility(alert.show_when ?? 'on', state)) return '';
+            let editHidden = false;
+            if (!this._evaluateVisibility(alert.show_when ?? 'on', state ?? '')) {
+                if (!this._editMode) return '';
+                editHidden = true;
+            }
 
             const top = alert.y ?? 50;
             const left = alert.x ?? 50;
             const rawIcon = alert.icon ?? '!';
             const color = alert.color || null;
             const label = alert.label ?? '';
-            const pulse = alert.pulse !== false ? 'alert-pulse' : '';
+            const pulse = (!editHidden && alert.pulse !== false) ? 'alert-pulse' : '';
 
             // Support mdi: icons (rendered as HA icon element) or emoji/text
             const iconColor = alert.icon_color ?? (color ? '#fff' : '#ccc');
@@ -622,8 +632,10 @@ class ForkUHouseCard extends HTMLElement {
                 ? `style="background: ${color}; box-shadow: 0 0 8px ${color};"`
                 : `style="background: transparent; width: auto; height: auto;"`;
 
+            const editStyle = editHidden ? ' opacity: 0.3; outline: 1px dashed rgba(255,255,255,0.3);' : '';
+
             return `
-              <div class="alert-badge ${pulse}" style="top: ${top}%; left: ${left}%;">
+              <div class="alert-badge ${pulse}" style="top: ${top}%; left: ${left}%;${editStyle}">
                 <div class="alert-icon" ${iconStyle}>${iconContent}</div>
                 ${label ? `<span class="alert-label">${label}</span>` : ''}
               </div>`;
@@ -637,8 +649,12 @@ class ForkUHouseCard extends HTMLElement {
         const sprinklers = this._config.sprinklers || [];
         container.innerHTML = sprinklers.map(zone => {
             const state = this._hass.states[zone.entity]?.state;
-            if (!state) return '';
-            if (!this._evaluateVisibility(zone.show_when ?? 'on', state)) return '';
+            if (!state && !this._editMode) return '';
+            let editHidden = false;
+            if (!this._evaluateVisibility(zone.show_when ?? 'on', state ?? '')) {
+                if (!this._editMode) return '';
+                editHidden = true;
+            }
 
             const top = zone.y ?? 50;
             const left = zone.x ?? 50;
@@ -646,9 +662,10 @@ class ForkUHouseCard extends HTMLElement {
             const label = zone.label ?? '';
             const size = zone.size ?? 'medium';
             const sizeClass = `sprinkler-${size}`;
+            const editStyle = editHidden ? ' opacity: 0.3; outline: 1px dashed rgba(255,255,255,0.3);' : '';
 
             return `
-              <div class="sprinkler-zone ${sizeClass}" style="top: ${top}%; left: ${left}%;">
+              <div class="sprinkler-zone ${sizeClass}" style="top: ${top}%; left: ${left}%;${editStyle}">
                 <div class="sprinkler-head" style="color: ${color};">
                   <div class="sprinkler-spray" style="border-color: ${color};"></div>
                   <div class="sprinkler-spray spray-2" style="border-color: ${color};"></div>
@@ -963,16 +980,20 @@ class ForkUHouseCard extends HTMLElement {
             const showWhen = node.show_when;
             const nodeSize = node.size ?? (configIsSource ? 44 : 30);
 
-            // Visibility check
+            // Visibility check (in edit mode, show hidden items at reduced opacity)
+            let editHidden = false;
             if (showWhen !== undefined) {
                 const state = this._hass.states[node.entity]?.state;
-                if (!this._evaluateVisibility(showWhen, state)) return;
+                if (!this._evaluateVisibility(showWhen, state)) {
+                    if (!this._editMode) return;
+                    editHidden = true;
+                }
             }
 
             // Dim or hide when near zero (< 0.1 kW)
-            const nearZero = absVal < 0.1;
+            const nearZero = absVal < 0.1 && !editHidden;
             if (nearZero) {
-                if (node.hide_zero === true) return; // completely hidden
+                if (node.hide_zero === true && !this._editMode) return;
                 // Show very faint
                 const dimIcon = icon.startsWith('mdi:')
                     ? `<ha-icon icon="${icon}" style="--mdc-icon-size: ${nodeSize * 0.45}px; color: #555;"></ha-icon>`
@@ -1051,8 +1072,9 @@ class ForkUHouseCard extends HTMLElement {
             }
 
             const sizeClass = isSource ? 'enode-source' : 'enode-consumer';
+            const editStyle = editHidden ? ' opacity: 0.3; outline: 1px dashed rgba(255,255,255,0.3);' : '';
             nodesHtml += `
-              <div class="energy-node ${sizeClass}" style="top: ${node.y ?? 50}%; left: ${node.x ?? 50}%;">
+              <div class="energy-node ${sizeClass}" style="top: ${node.y ?? 50}%; left: ${node.x ?? 50}%;${editStyle}">
                 <div class="enode-circle" style="width:${nodeSize}px; height:${nodeSize}px; border-color: ${color};">
                   <div class="enode-glow" style="background: radial-gradient(circle, ${color}66 0%, transparent 70%);"></div>
                   ${iconHtml}

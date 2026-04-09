@@ -441,13 +441,29 @@ class ForkUHouseCard extends HTMLElement {
     _updateData() {
       if (!this._hass || !this.shadowRoot.querySelector('.card')) return;
 
-      // Detect edit mode: config flag OR card is inside editor preview
-      this._editMode = this._editModeConfig
-          || !!this.closest('hui-card-preview')
-          || !!this.closest('hui-card-editor')
-          || !!this.closest('.element-preview')
-          || !!this.parentElement?.closest('.edit-mode')
-          || !!document.querySelector('hui-dialog-edit-card');
+      // Detect edit mode — walk up through shadow DOM boundaries
+      if (!this._editModeConfig) {
+          let el = this;
+          this._editMode = false;
+          while (el) {
+              if (el.classList?.contains('element-preview') ||
+                  el.classList?.contains('edit-mode') ||
+                  el.tagName?.toLowerCase() === 'hui-card-preview' ||
+                  el.tagName?.toLowerCase() === 'hui-card-editor') {
+                  this._editMode = true;
+                  break;
+              }
+              // Walk up: parentElement within same DOM, getRootNode().host to cross shadow boundary
+              if (el.parentElement) {
+                  el = el.parentElement;
+              } else {
+                  const root = el.getRootNode();
+                  el = root?.host ?? null;
+              }
+          }
+      } else {
+          this._editMode = true;
+      }
 
       // --- DYNAMIC BACKGROUND UPDATE ---
       const newImage = this._calculateImage();

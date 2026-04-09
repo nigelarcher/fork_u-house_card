@@ -149,6 +149,11 @@ class ForkUHouseCard extends HTMLElement {
       this._energyCacheKey = null;
       this._energyDirty = true;
       this._energyLastUpdate = null;
+      // performance: "low" forces it, "auto" (default) detects, "high" disables
+      const perfSetting = config.performance ?? 'auto';
+      this._lowPerf = perfSetting === 'low';
+      this._perfAutoDetect = perfSetting === 'auto';
+      this._perfSamples = [];
       this._render();
     }
   
@@ -536,7 +541,7 @@ class ForkUHouseCard extends HTMLElement {
     _updateBadges(rooms) {
       const container = this.shadowRoot.querySelector('.badges-layer');
       if (!container) return;
-      container.innerHTML = rooms.map(room => {
+      const html = rooms.map(room => {
         if (!room.valid) return '';
         // Visibility check
         if (room.show_when !== undefined) {
@@ -555,8 +560,9 @@ class ForkUHouseCard extends HTMLElement {
             </div>
           </div>`;
       }).join('');
+      if (container.innerHTML !== html) container.innerHTML = html;
     }
-    
+
     _getBadgeColor(room) {
         // Custom thresholds & colors per room:
         //   thresholds: [low, mid, high]   — 3 boundaries = 4 zones
@@ -592,7 +598,7 @@ class ForkUHouseCard extends HTMLElement {
         const container = this.shadowRoot.querySelector('.alerts-layer');
         if (!container) return;
         const alerts = this._config.alerts || [];
-        container.innerHTML = alerts.map(alert => {
+        const html = alerts.map(alert => {
             const state = this._hass.states[alert.entity]?.state;
             if (!state) return '';
 
@@ -614,7 +620,7 @@ class ForkUHouseCard extends HTMLElement {
 
             const iconStyle = color
                 ? `style="background: ${color}; box-shadow: 0 0 8px ${color};"`
-                : `style="background: transparent;"`;
+                : `style="background: transparent; width: auto; height: auto;"`;
 
             return `
               <div class="alert-badge ${pulse}" style="top: ${top}%; left: ${left}%;">
@@ -622,6 +628,7 @@ class ForkUHouseCard extends HTMLElement {
                 ${label ? `<span class="alert-label">${label}</span>` : ''}
               </div>`;
         }).join('');
+        if (container.innerHTML !== html) container.innerHTML = html;
     }
 
     _updateSprinklers() {
@@ -1343,7 +1350,7 @@ class ForkUHouseCard extends HTMLElement {
               font-size: 0.55rem; color: #fff; text-transform: uppercase;
               background: rgba(20, 20, 25, 0.75); backdrop-filter: blur(8px);
               border: 1px solid rgba(255,255,255,0.15);
-              padding: 2px 8px; border-radius: 10px;
+              padding: 2px 6px 2px 4px; border-radius: 10px;
               white-space: nowrap;
           }
           .alert-pulse { animation: alert-glow 1.5s ease-in-out infinite; }
@@ -1499,8 +1506,16 @@ class ForkUHouseCard extends HTMLElement {
               overflow: hidden;
               */
           }
+
+          /* LOW PERFORMANCE MODE — disable expensive backdrop-filter blur */
+          .card.low-perf .badge { backdrop-filter: none; background: rgba(20, 20, 25, 0.9); }
+          .card.low-perf .alert-label { backdrop-filter: none; background: rgba(20, 20, 25, 0.9); }
+          .card.low-perf .footer { backdrop-filter: none; background: rgba(10, 10, 15, 0.85); }
+          .card.low-perf .enode-circle { backdrop-filter: none; background: rgba(15, 15, 20, 0.95); }
+          .card.low-perf .enode-value { backdrop-filter: none; background: rgba(15, 15, 20, 0.95); }
+          .card.low-perf .value-pill { backdrop-filter: none; background: rgba(20, 20, 25, 0.9); }
         </style>
-        <div class="card">
+        <div class="card${this._lowPerf ? ' low-perf' : ''}">
           <div class="bg-image"></div>
           <div class="gradient-layer"></div>
           <div class="dim-layer"></div>
@@ -1578,6 +1593,26 @@ class ForkUHouseCard extends HTMLElement {
           this._ctx.fillStyle = `rgba(255, 255, 255, ${this._flashOpacity})`;
           this._ctx.fillRect(0,0, this._canvas.width, this._canvas.height);
           this._flashOpacity -= 0.05;
+      }
+
+      // Auto-detect low performance: sample frame times for first 3 seconds
+      if (this._perfAutoDetect && !this._lowPerf && this._perfSamples.length < 90) {
+          const now = performance.now();
+          if (this._perfLastFrame) {
+              this._perfSamples.push(now - this._perfLastFrame);
+          }
+          this._perfLastFrame = now;
+
+          // After ~60 frames, check average
+          if (this._perfSamples.length === 60) {
+              const avg = this._perfSamples.reduce((a, b) => a + b, 0) / this._perfSamples.length;
+              // avg > 40ms means < 25fps — enable low perf
+              if (avg > 40) {
+                  this._lowPerf = true;
+                  const card = this.shadowRoot.querySelector('.card');
+                  if (card) card.classList.add('low-perf');
+              }
+          }
       }
 
       this._animationFrame = requestAnimationFrame(() => this._animate());

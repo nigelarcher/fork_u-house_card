@@ -946,9 +946,11 @@ class ForkUHouseCard extends HTMLElement {
             const label = node.name ?? '';
             const nx = (node.x ?? 50) / 100 * w;
             const ny = (node.y ?? 50) / 100 * h;
-            const isSource = node.direction === 'source';
+            const configIsSource = node.direction === 'source';
+            // Flip direction based on sign: negative source = charging (consumer), negative consumer = producing
+            const isSource = val >= 0 ? configIsSource : !configIsSource;
             const showWhen = node.show_when;
-            const nodeSize = node.size ?? (isSource ? 44 : 30);
+            const nodeSize = node.size ?? (configIsSource ? 44 : 30);
 
             // Visibility check
             if (showWhen !== undefined) {

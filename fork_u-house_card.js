@@ -143,7 +143,7 @@ class ForkUHouseCard extends HTMLElement {
       if (!config.rooms || !Array.isArray(config.rooms)) throw new Error("Missing 'rooms' list.");
       this._config = config;
       this._lang = config.language || 'en';
-      this._editMode = !!config.__editMode;
+      this._editModeConfig = !!config.__editMode || !!config.__configElement;
       // Reset energy state on config change
       this._energyPrefsFetched = false;
       this._energyPrefs = null;
@@ -440,6 +440,13 @@ class ForkUHouseCard extends HTMLElement {
     // --- DATA LOGIC ---
     _updateData() {
       if (!this._hass || !this.shadowRoot.querySelector('.card')) return;
+
+      // Detect edit mode: config flag OR card is inside editor preview
+      this._editMode = this._editModeConfig
+          || !!this.closest('hui-card-preview')
+          || !!this.closest('hui-card-editor')
+          || !!this.parentElement?.closest('.edit-mode')
+          || !!document.querySelector('hui-dialog-edit-card');
 
       // --- DYNAMIC BACKGROUND UPDATE ---
       const newImage = this._calculateImage();

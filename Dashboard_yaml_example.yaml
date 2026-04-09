@@ -1,0 +1,463 @@
+type: custom:fork-u-house-card
+layout_options:
+  grid_columns: 4    # wider card in sections view (default: 2)
+  grid_rows: auto    # auto height
+# performance: auto  # "auto" (default) detects slow devices and disables blur
+                     # "low" forces low-perf mode (no backdrop blur)
+                     # "high" forces full effects even on slow devices
+language: pl
+image_path: /local/house-images/
+image: /local/community/fork_u-house_card/images/
+weather_entity: weather.forecast_home
+season_entity: sensor.season
+sun_entity: sun.sun
+cloud_coverage_entity: sensor.home_cloud_coverage
+party_mode_entity: input_boolean.gaming_mode
+gaming_image: synthwave  # Options: synthwave, cyberpunk, matrix, mario, xbox_kid
+aqi_entity: beresfield_lower_hunter_pm2_5
+pollen_entity: sensor.home_pollen_types_32_753374151_625700_grass
+uv_entity: sensor.home_uv_index
+wind_speed_entity: sensor.home_wind_speed
+wind_direction_entity: sensor.home_wind_direction
+
+# Global temperature thresholds: [cold, optimal, warm, hot]
+# Default: [18, 24, 30, 35]
+# temp_thresholds: [16, 22, 30, 38]
+
+# Birthdays (MM-DD format). During xmas (Dec 1-26), the advent image takes
+# priority — Dec 23's advent image already includes girl_bday in the scene.
+birthdays:
+  - name: boy_bday
+    date: "03-15"
+  - name: girl_bday
+    date: "12-23"
+
+# Weather image overrides (set to true to enable weather-specific images)
+# img_winter_snowy_day: true
+# img_summer_rainy_night: true
+
+# ---- Colour Reference (hex codes for thresholds/colors) ----
+# Reds:       #F87171 (soft red)     #EF4444 (red)          #DC2626 (dark red)      #B91C1C (deep red)
+# Oranges:    #FB923C (orange)       #F97316 (bold orange)  #EA580C (burnt orange)
+# Ambers:     #FBBF24 (amber)        #F59E0B (gold)         #D97706 (dark gold)
+# Yellows:    #FDE047 (yellow)       #FACC15 (sunflower)    #EAB308 (mustard)
+# Limes:      #A3E635 (lime)         #84CC16 (lime green)   #65A30D (olive)
+# Greens:     #34D399 (emerald)      #10B981 (green)        #059669 (dark green)     #4ADE80 (light green)
+# Teals:      #2DD4BF (teal)         #14B8A6 (dark teal)    #0D9488 (deep teal)
+# Cyans:      #22D3EE (cyan)         #06B6D4 (sky cyan)     #0891B2 (dark cyan)
+# Blues:      #60A5FA (soft blue)    #3B82F6 (blue)         #2563EB (bold blue)      #38BDF8 (sky blue)
+# Indigos:    #818CF8 (indigo)       #6366F1 (bold indigo)  #4F46E5 (dark indigo)
+# Purples:    #A78BFA (purple)       #8B5CF6 (violet)       #7C3AED (dark violet)
+# Pinks:      #F472B6 (pink)         #EC4899 (hot pink)     #DB2777 (magenta)
+# Neutrals:   #888888 (grey)         #A1A1AA (light grey)   #52525B (dark grey)      #FFFFFF (white)
+
+rooms:
+  # Basic temperature sensor (default unit: °, uses temp colour thresholds)
+  - name: Lounge
+    entity: sensor.lounge_temp
+    x: 40
+    "y": 45
+    weight: 1
+
+  # Custom unit with custom colour thresholds
+  - name: Humidity
+    entity: sensor.lounge_humidity
+    unit: "%"
+    x: 60
+    "y": 45
+    weight: 0  # excluded from median temp
+    thresholds: [30, 50, 70]
+    colors: ["#F87171", "#34D399", "#FBBF24", "#F87171"]
+    # <30% red (dry), 30-50% green (good), 50-70% amber, >70% red (humid)
+
+  # Fermenter with tight brewing range
+  - name: Fermenter 1
+    entity: sensor.fermenter_temp_1_temperature
+    x: 50
+    "y": 50
+    weight: 1
+    thresholds: [16, 20, 24]
+    colors: ["#60A5FA", "#34D399", "#FBBF24", "#F87171"]
+    # <16° blue (cold), 16-20° green (ideal), 20-24° amber, >24° red (too hot)
+
+  # Power sensor with custom unit, no colour coding
+  - name: Solar
+    entity: sensor.solar_power
+    unit: "W"
+    x: 70
+    "y": 50
+    weight: 0
+
+  # ---- show_when visibility examples ----
+  # show_when controls when a badge is visible. Omit for always-visible.
+  # Works on rooms, alerts, and sprinklers.
+  #
+  # Exact match (string or number):
+  #   show_when: "on"
+  #   show_when: 42
+  #
+  # Array of values (match any):
+  #   show_when: ["on", "running", "active"]
+  #
+  # Comparison operators (for numeric values):
+  #   show_when: { gt: 10 }           # greater than 10
+  #   show_when: { lt: 50 }           # less than 50
+  #   show_when: { gte: 10 }          # greater than or equal to 10
+  #   show_when: { lte: 50 }          # less than or equal to 50
+  #   show_when: { eq: 42 }           # equals 42
+  #   show_when: { neq: 0 }           # not equal to 0
+  #   show_when: { range: [10, 50] }  # between 10 and 50 (inclusive)
+  #
+  # Combine operators (all must be true):
+  #   show_when: { gt: 0, lt: 100 }   # between 0 and 100 (exclusive)
+
+  # Only show solar when generating power
+  - name: Solar
+    entity: sensor.solar_power
+    unit: "W"
+    show_when: { gt: 0 }
+    x: 70
+    "y": 50
+    weight: 0
+
+  # Only show pool temp when heater is running (using a different entity)
+  # Note: show_when checks the room's own entity value
+  - name: Pool
+    entity: sensor.pool_temperature
+    show_when: { range: [20, 35] }
+    x: 80
+    "y": 70
+    weight: 0
+
+# ---- Icon Reference ----
+# Icons can be emoji (copy-paste) OR Home Assistant mdi: icons (type the name).
+#
+# HA Material Design Icons (mdi:) — use format: "mdi:icon-name"
+#   Motion:     mdi:motion-sensor, mdi:eye, mdi:cctv, mdi:run-fast
+#   Doors:      mdi:door, mdi:door-open, mdi:door-closed, mdi:doorbell
+#   Garage:     mdi:garage, mdi:garage-open, mdi:garage-alert
+#   Locks:      mdi:lock, mdi:lock-open, mdi:lock-alert
+#   Lights:     mdi:lightbulb, mdi:lightbulb-off, mdi:lamp, mdi:ceiling-light
+#   Switches:   mdi:toggle-switch, mdi:power-plug, mdi:power
+#   Climate:    mdi:thermometer, mdi:water-percent, mdi:fan, mdi:air-conditioner
+#   Water:      mdi:water, mdi:pool, mdi:water-pump, mdi:waves
+#   Security:   mdi:shield-home, mdi:alarm-light, mdi:bell-ring, mdi:siren
+#   Cameras:    mdi:camera, mdi:webcam, mdi:video
+#   Vehicles:   mdi:car, mdi:car-connected, mdi:ev-station
+#   Energy:     mdi:solar-power, mdi:battery, mdi:lightning-bolt, mdi:flash
+#   Alerts:     mdi:alert, mdi:alert-circle, mdi:exclamation-thick
+#   General:    mdi:check-circle, mdi:information, mdi:home, mdi:fire
+#   Browse all: https://pictogrammers.com/library/mdi/
+#
+# Emoji (copy-paste these directly):
+#   Eyes:    👁  👀         Motion:  🏃  💨         Doors:   🚪  🔑
+#   Warning: ⚠  ❗  🚨     Camera:  📷  📹         Locks:   🔒  🔓
+#   Water:   💧  🏊  🌊    Fire:    🔥  🧯         Power:   ⚡  🔌  💡
+#   Temp:    🌡  ❄  🔥     Vehicle: 🚗  🅿         Alarm:   🚨  🔔  📢
+#   Weather: ☀  🌧  🌩    Nature:  🌿  🌱  🌳    General: ✅  ❌  ℹ
+
+# ---- Alert Badges ----
+# Conditional badges that appear/disappear based on entity state.
+# Options:
+#   entity:     (required) HA entity to watch
+#   show_when:  state value to show badge (default: "on"). Can be a string or list of states.
+#   icon:       emoji or "mdi:icon-name" shown in the circle (default: "!")
+#   icon_color: hex colour for the icon itself (default: #fff with bg, #ccc without)
+#   label:      optional text label next to the icon
+#   color:      hex colour of the background circle + glow (omit for no background)
+#   x, y:       position as % (0-100)
+#   pulse:      true/false — pulsing animation (default: true)
+alerts:
+  # Camera motion detection (using mdi icon)
+  - entity: binary_sensor.pool_external_g4_dome_motion_detection
+    icon: "mdi:motion-sensor"
+    label: "Motion"
+    color: "#F87171"
+    x: 80
+    "y": 20
+
+  # Front door camera (using mdi icon)
+  - entity: binary_sensor.front_door_cam_motion
+    icon: "mdi:door"
+    label: "Door"
+    color: "#FB923C"
+    x: 30
+    "y": 35
+
+  # Pool pump running — no background, just a floating icon
+  - entity: switch.pool_pump
+    icon: "🏊"
+    x: 75
+    "y": 70
+
+  # Sprinklers — mdi icon, no background, custom icon colour
+  - entity: switch.garden_sprinklers
+    icon: "mdi:sprinkler"
+    icon_color: "#38BDF8"
+    x: 85
+    "y": 60
+
+  # EV charging — mdi icon, no background, coloured icon
+  - entity: sensor.barry_charging
+    show_when: ["charging", "no_power"]
+    icon: "mdi:lightning-bolt"
+    icon_color: "#FBBF24"
+    x: 35
+    "y": 45
+
+  # Garage open (mdi icon with colour + label)
+  - entity: cover.garage_door
+    show_when: "open"
+    icon: "mdi:garage-open"
+    label: "Garage"
+    color: "#FBBF24"
+    x: 45
+    "y": 80
+
+  # Alarm triggered — show for multiple states (using mdi icon)
+  - entity: alarm_control_panel.home_alarm
+    show_when: ["triggered", "pending"]
+    icon: "mdi:alarm-light"
+    label: "ALARM"
+    color: "#DC2626"
+    x: 50
+    "y": 10
+
+# ---- Sprinkler Zones ----
+# Shows animated rotating sprinkler with expanding water rings when entity is "on".
+# Options:
+#   entity:  (required) switch/binary_sensor entity for the zone
+#   label:   optional zone name
+#   color:   water colour (default: #38BDF8 sky blue)
+#   size:    small, medium (default), or large
+#   x, y:    position as % (0-100)
+sprinklers:
+  - entity: switch.sprinkler_front_lawn
+    label: "Front"
+    x: 30
+    "y": 75
+
+  - entity: switch.sprinkler_back_garden
+    label: "Back"
+    color: "#34D399"
+    size: large
+    x: 70
+    "y": 30
+
+  - entity: switch.sprinkler_side_strip
+    size: small
+    x: 10
+    "y": 50
+
+# ---- Bin Night ----
+# Shows coloured bin icons on collection day (and from 5pm the night before).
+# Options:
+#   day:          collection day of the week (monday, tuesday, etc.)
+#   cadence:      weekly (default), fortnightly, or monthly
+#   anchor_date:  a known collection date (YYYY-MM-DD) to calculate fortnightly/monthly from
+#   color:        bin lid colour (match your council bins!)
+#   label:        optional label (e.g. "General", "Recycle", "Green")
+#   x, y:         position as % (0-100) — position each bin along the curb
+#
+# How anchor_date works:
+#   Set it to any date your bin WAS collected. The card counts weeks from that
+#   date to work out if this week is a collection week.
+#   For fortnightly: shows every 2 weeks from the anchor.
+#   For monthly: shows on the same week-of-month occurrence as the anchor
+#                (e.g. anchor on 2nd Tuesday = shows every 2nd Tuesday).
+bins:
+  # Red lid — general waste (weekly, no anchor needed)
+  - day: tuesday
+    cadence: weekly
+    color: "#DC2626"
+    label: "General"
+    x: 12
+    "y": 88
+
+  # Yellow lid — recycling (fortnightly)
+  - day: tuesday
+    cadence: fortnightly
+    anchor_date: "2026-04-07"   # a known recycling collection date
+    color: "#FBBF24"
+    label: "Recycle"
+    x: 18
+    "y": 88
+
+  # Green lid — green waste (fortnightly, alternates with recycling)
+  - day: tuesday
+    cadence: fortnightly
+    anchor_date: "2026-04-14"   # the OTHER week from recycling
+    color: "#10B981"
+    label: "Green"
+    x: 24
+    "y": 88
+
+# ---- Energy Flow ----
+# Power flow overlay with animated dots between nodes (like HA Energy Dashboard).
+# Nodes connect to a central "home" node. Dots flow in the configured direction.
+#
+# Auto-discovery modes (pulls from HA Energy Dashboard config):
+#   auto: true             — auto-discover BOTH sources AND consumers
+#   auto_sources: true     — auto-discover sources only (solar/grid/battery)
+#   auto_consumers: true   — auto-discover device consumers only
+#   (none)                 — fully manual, define everything in nodes:
+#
+# auto_sources/auto_consumers override auto when set explicitly. e.g.:
+#   auto: true + auto_consumers: false = sources only
+#
+# Both modes can be combined: manual nodes always take priority, auto fills gaps.
+# Uses power sensors (stat_rate) where configured, falls back to energy sensors.
+#
+# energy.home:  Central home node (required)
+#   entity:          total home consumption sensor (optional — auto-calculated from sources if omitted)
+#   icon:            mdi icon or emoji
+#   color:           node border/glow colour
+#   unit:            display unit (default: kW)
+#   x, y:            position as %
+#
+# energy.update_interval:  seconds between updates (default: 30)
+#
+# energy.node_positions:  Override positions for auto-discovered source types
+#   solar:    { x, y, icon, color, name, max }
+#   grid:     { x, y, icon, color, name, max }
+#   battery:  { x, y, icon, color, name, max }
+#
+# energy.consumer_positions:  Override positions for auto-discovered consumers (by entity ID)
+#   sensor.ac_energy: { x, y, name, icon, color, max }
+#
+# energy.nodes: Array of manually defined source/consumer nodes
+#   entity:     power sensor
+#   name:       display label
+#   icon:       mdi icon or emoji
+#   color:      node/line/dot colour
+#   direction:  "source" (flows TO home) or "consumer" (flows FROM home)
+#   max:        max expected value for scaling dot count/speed (default: 10)
+#   unit:       display unit (default: kW)
+#   size:       circle diameter in px (default: 44 for sources, 30 for consumers)
+#   curvature:  line curve amount, 0=straight (default: 0.15)
+#   hide_zero:  set to false to hide node entirely when 0 (default: show dimmed)
+#   show_when:  visibility rule (same syntax as badges)
+#   x, y:       position as %
+
+# --- Example 1: AUTO sources only (recommended) ---
+# Auto-discover solar/grid/battery, add consumers manually
+# energy:
+#   auto_sources: true
+#   home:
+#     entity: sensor.home_consumption
+#     icon: "mdi:home"
+#     color: "#A78BFA"
+#     x: 48
+#     "y": 40
+#   node_positions:
+#     solar: { x: 57, "y": 12 }
+#     grid: { x: 88, "y": 55 }
+#     battery: { x: 15, "y": 30, battery_entity: "sensor.battery_soc" }
+#   nodes:
+#     # Manual consumers — only the ones you care about
+#     - name: A/C
+#       entity: sensor.ac_power
+#       icon: "mdi:air-conditioner"
+#       color: "#FB923C"
+#       direction: consumer
+#       max: 5
+#       size: 30
+#       x: 32
+#       "y": 58
+#     - name: EV
+#       entity: sensor.ev_charger_power
+#       icon: "mdi:ev-station"
+#       color: "#F87171"
+#       direction: consumer
+#       max: 7
+#       size: 30
+#       x: 18
+#       "y": 72
+
+# --- Example 2: Full AUTO (sources + consumers from HA Energy Dashboard) ---
+# energy:
+#   auto: true
+#   home:
+#     entity: sensor.home_consumption
+#     x: 48
+#     "y": 40
+#   node_positions:
+#     solar: { x: 57, "y": 12 }
+#     grid: { x: 88, "y": 55 }
+#     battery: { x: 15, "y": 30, battery_entity: "sensor.battery_soc" }
+#   consumer_positions:
+#     sensor.ac_energy: { x: 32, "y": 58, name: "A/C", icon: "mdi:air-conditioner" }
+#     sensor.ev_charger_energy: { x: 18, "y": 72, name: "EV", icon: "mdi:ev-station" }
+
+# --- Example 3: Fully manual (no auto-discovery) ---
+energy:
+  home:
+    entity: sensor.home_consumption
+    icon: "mdi:home"
+    name: "Home"
+    color: "#A78BFA"
+    unit: "kW"
+    x: 48
+    "y": 40
+
+  nodes:
+    # --- Sources ---
+    - name: Solar
+      entity: sensor.solar_power
+      icon: "mdi:solar-power"
+      color: "#FBBF24"
+      direction: source
+      max: 10
+      x: 57
+      "y": 12
+
+    - name: Battery
+      entity: sensor.battery_power
+      icon: "mdi:battery"
+      color: "#34D399"
+      direction: source
+      max: 5
+      battery_entity: sensor.battery_soc  # SOC sensor — auto-shows fill level icon + percentage
+      x: 15
+      "y": 30
+
+    - name: Grid
+      entity: sensor.grid_import
+      icon: "mdi:transmission-tower"
+      color: "#60A5FA"
+      direction: source
+      max: 8
+      x: 88
+      "y": 55
+
+    # --- Consumers ---
+    - name: A/C
+      entity: sensor.ac_power
+      icon: "mdi:air-conditioner"
+      color: "#FB923C"
+      direction: consumer
+      max: 5
+      size: 30
+      x: 32
+      "y": 58
+
+    - name: EV
+      entity: sensor.ev_charger_power
+      icon: "mdi:ev-station"
+      color: "#F87171"
+      direction: consumer
+      max: 7
+      size: 30
+      x: 18
+      "y": 72
+
+    - name: Pool
+      entity: sensor.pool_pump_power
+      icon: "mdi:pool"
+      color: "#38BDF8"
+      direction: consumer
+      max: 1.5
+      size: 30
+      x: 72
+      "y": 70
+

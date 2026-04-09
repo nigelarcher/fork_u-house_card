@@ -873,7 +873,8 @@ class ForkUHouseCard extends HTMLElement {
 
         // Throttle: only process every 30 seconds
         const now = Date.now();
-        const interval = (energyCfg.update_interval ?? 30) * 1000;
+        const defaultInterval = this._lowPerf ? 120 : 30;
+        const interval = (energyCfg.update_interval ?? defaultInterval) * 1000;
         if (this._energyLastUpdate && now - this._energyLastUpdate < interval && !this._energyDirty) return;
         this._energyLastUpdate = now;
 
@@ -1011,7 +1012,7 @@ class ForkUHouseCard extends HTMLElement {
 
             // Animated dots — count and speed based on power
             const intensity = Math.min(absVal / max, 1);
-            const dotCount = Math.max(1, Math.round(intensity * 4));
+            const dotCount = this._lowPerf ? 1 : Math.max(1, Math.round(intensity * 4));
             const duration = 8 - intensity * 4; // 8s at idle, 4s at max
 
             for (let d = 0; d < dotCount; d++) {
@@ -1562,7 +1563,17 @@ class ForkUHouseCard extends HTMLElement {
 
     _animate() {
       if (!this._ctx) return;
-      
+
+      // Cap to ~15fps in low-perf mode (skip frames if < 66ms since last)
+      if (this._lowPerf) {
+          const now = performance.now();
+          if (this._lastAnimTime && now - this._lastAnimTime < 66) {
+              this._animationFrame = requestAnimationFrame(() => this._animate());
+              return;
+          }
+          this._lastAnimTime = now;
+      }
+
       const wEnt = this._config.weather_entity;
       let wState = this._config.test_weather_state || (wEnt ? this._hass.states[wEnt]?.state : "");
       const { speed, bearing } = this._getWindData();

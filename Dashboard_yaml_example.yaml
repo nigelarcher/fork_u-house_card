@@ -24,6 +24,246 @@ wind_direction_entity: sensor.home_wind_direction
 # Default: [18, 24, 30, 35]
 # temp_thresholds: [16, 22, 30, 38]
 
+# ---- Smart Tips ----
+# Replaces the static AI footer with contextual, actionable tips.
+# Each rule uses Jinja2 templates (same syntax as HA automations).
+# All rules are batched into ONE websocket subscription — HA does the work.
+#
+# Options:
+#   display:           "rotating" (default), "single", or "stacked"
+#   rotation_seconds:  seconds between tips in rotating mode (default: 8)
+#   hide_when_empty:   hide footer when no tips active (default: true)
+#   idle_message:      string to show when no tips active (overrides hide_when_empty)
+#
+# Each rule:
+#   id:        unique identifier
+#   icon:      mdi:icon-name or emoji
+#   text:      message (can include {{...}} for inline values)
+#   level:     info, warn, or danger (drives footer colour)
+#   priority:  number — higher wins when multiple tips fire
+#   when:      Jinja2 template returning true/false
+tips:
+  display: rotating
+  rotation_seconds: 8
+  hide_when_empty: true
+
+  rules:
+    - id: bin_night
+      icon: "mdi:trash-can"
+      text: "Bin night — put the bins out before bed"
+      level: info
+      priority: 5
+      when: >-
+        {{ now().hour >= 17 and now().weekday() == 1 }}
+
+    - id: rain_soon
+      icon: "mdi:weather-pouring"
+      level: warn
+      priority: 8
+      text: >-
+        Rain expected at {{ state_attr('weather.forecast_home','forecast')[0].datetime[11:16] }}
+        — bring washing in
+      when: >-
+        {{ state_attr('weather.forecast_home','forecast')[:3]
+           | selectattr('condition','in',['rainy','pouring'])
+           | list | count > 0 }}
+
+    - id: uv_high
+      icon: "mdi:weather-sunny-alert"
+      level: warn
+      priority: 6
+      text: "UV index {{ states('sensor.home_uv_index') }} — slip slop slap"
+      when: >-
+        {{ states('sensor.home_uv_index') | float(0) > 7
+           and is_state('sun.sun','above_horizon') }}
+
+    - id: storm_warning
+      icon: "mdi:weather-lightning"
+      level: danger
+      priority: 10
+      text: "Storm warning! Lightning detected nearby"
+      when: >-
+        {{ is_state('weather.forecast_home','lightning')
+           or is_state('weather.forecast_home','lightning-rainy') }}
+
+    - id: solar_peak
+      icon: "mdi:solar-power"
+      level: info
+      priority: 4
+      text: "Solar producing {{ (states('sensor.solar_power') | float / 1000) | round(1) }} kW — good time to run dishwasher"
+      when: >-
+        {{ states('sensor.solar_power') | float(0) > 5000 }}
+
+    - id: pool_motion
+      icon: "mdi:pool"
+      level: warn
+      priority: 9
+      text: "Motion in pool area — keep an eye on the kids"
+      when: >-
+        {{ is_state('binary_sensor.pool_external_g4_dome_motion','Detected') }}
+
+    # ---- AI Narrative tips (mirrors the original AI advisor messages) ----
+    # These reproduce the previous static AI advisor as low-priority tips.
+    # Higher-priority rules above will override them when relevant.
+
+    # 1. DANGER / STORM (highest of the AI narratives)
+    - id: ai_storm
+      icon: "⚠️"
+      level: danger
+      priority: 100
+      text: "CRITICAL ALERT: A storm with lightning is active nearby. Strong winds and heavy rain are expected. Please secure loose objects outside and stay indoors for safety."
+      when: >-
+        {{ states('weather.forecast_home') in ['lightning','lightning-rainy','hail'] }}
+
+    # 2. HEALTH: AQI bad
+    - id: ai_aqi_bad
+      icon: "😷"
+      level: danger
+      priority: 95
+      text: "SMOG ALERT: Air quality is critical (PM2.5: {{ states('sensor.beresfield_lower_hunter_pm2_5') }}). Prolonged exposure is dangerous. Keep windows closed and run your air purifier."
+      when: >-
+        {{ states('sensor.beresfield_lower_hunter_pm2_5') | float(0) > 100 }}
+
+    # 2b. HEALTH: AQI moderate
+    - id: ai_aqi_mod
+      icon: "😶"
+      level: warn
+      priority: 90
+      text: "AIR QUALITY WARNING: PM2.5 levels are elevated ({{ states('sensor.beresfield_lower_hunter_pm2_5') }}). Sensitive groups should limit outdoor exertion today."
+      when: >-
+        {{ 50 < states('sensor.beresfield_lower_hunter_pm2_5') | float(0) <= 100 }}
+
+    # 3. HEALTH: Pollen
+    - id: ai_pollen
+      icon: "🤧"
+      level: warn
+      priority: 85
+      text: "ALLERGY ALERT: High pollen concentration detected. If you suffer from allergies, keep windows shut and have your medication ready."
+      when: >-
+        {{ states('sensor.home_pollen_types_32_753374151_625700_grass') in ['high','very_high','extreme','red']
+           or states('sensor.home_pollen_types_32_753374151_625700_grass') | float(0) > 50 }}
+
+    # 4. FORECAST: Rain coming in next 3h
+    - id: ai_rain_soon
+      icon: "☂️"
+      level: warn
+      priority: 80
+      text: >-
+        PLAN AHEAD: Rain is approaching and expected around
+        {{ (state_attr('weather.forecast_home','forecast')[:3]
+            | selectattr('condition','in',['rainy','pouring'])
+            | list | first).datetime[11:16] }}
+        (approx. {{ (state_attr('weather.forecast_home','forecast')[:3]
+            | selectattr('condition','in',['rainy','pouring'])
+            | list | first).precipitation | default('~') }} mm).
+        Don't leave without an umbrella.
+      when: >-
+        {{ state_attr('weather.forecast_home','forecast')[:3]
+           | selectattr('condition','in',['rainy','pouring'])
+           | list | count > 0
+           and states('weather.forecast_home') not in ['rainy','pouring','snowy','snowy-rainy'] }}
+
+    # 4b. FORECAST: Snow coming in next 3h
+    - id: ai_snow_soon
+      icon: "❄️"
+      level: warn
+      priority: 80
+      text: >-
+        WINTER ALERT: Snowfall is expected around
+        {{ (state_attr('weather.forecast_home','forecast')[:3]
+            | selectattr('condition','equalto','snowy')
+            | list | first).datetime[11:16] }}.
+        Road conditions may deteriorate rapidly. Drive with caution.
+      when: >-
+        {{ state_attr('weather.forecast_home','forecast')[:3]
+           | selectattr('condition','equalto','snowy')
+           | list | count > 0
+           and not is_state('weather.forecast_home','snowy') }}
+
+    # 5. CURRENT: Raining now
+    - id: ai_rain_now
+      icon: "🌧️"
+      level: warn
+      priority: 70
+      text: >-
+        CURRENTLY RAINING: Intensity is {{ state_attr('weather.forecast_home','precipitation') | default('~') }} mm/h.
+        Wet surfaces and reduced visibility. Drive safely and wear waterproof gear.
+      when: >-
+        {{ states('weather.forecast_home') in ['rainy','pouring'] }}
+
+    # 5b. CURRENT: Snowing now
+    - id: ai_snow_now
+      icon: "🌨️"
+      level: warn
+      priority: 70
+      text: "SNOWING: Snow is falling right now. Enjoy the view, but dress warmly if you head out."
+      when: >-
+        {{ states('weather.forecast_home') in ['snowy','snowy-rainy'] }}
+
+    # 6. UV high
+    - id: ai_uv
+      icon: "☀️"
+      level: warn
+      priority: 60
+      text: >-
+        HIGH UV RADIATION: The UV Index is {{ states('sensor.home_uv_index') }}.
+        Unprotected skin can burn quickly. Use sunscreen and wear sunglasses if you go out.
+      when: >-
+        {{ states('sensor.home_uv_index') | float(0) > 6 }}
+
+    # 7. TEMPERATURE: cold + windy (wind chill)
+    - id: ai_cold_wind
+      icon: "🥶"
+      level: info
+      priority: 50
+      text: >-
+        WIND CHILL WARNING: It's {{ state_attr('weather.forecast_home','temperature') }}°C,
+        but the strong wind makes it feel much colder. Wear windproof layers and a hat.
+      when: >-
+        {{ state_attr('weather.forecast_home','temperature') | float(99) < 10
+           and states('sensor.home_wind_speed') | float(0) > 20 }}
+
+    # 7b. TEMPERATURE: cold
+    - id: ai_cold
+      icon: "🧣"
+      level: info
+      priority: 45
+      text: >-
+        COLD WEATHER: Outside temperature is {{ state_attr('weather.forecast_home','temperature') }}°C.
+        It's chilly — make sure to zip up your jacket and keep warm.
+      when: >-
+        {{ state_attr('weather.forecast_home','temperature') | float(99) < 5 }}
+
+    # 7c. TEMPERATURE: hot
+    - id: ai_hot
+      icon: "🔥"
+      level: warn
+      priority: 55
+      text: >-
+        HEAT ADVISORY: Temperatures have reached {{ state_attr('weather.forecast_home','temperature') }}°C.
+        Avoid strenuous activity in direct sunlight and drink plenty of water.
+      when: >-
+        {{ state_attr('weather.forecast_home','temperature') | float(0) > 28 }}
+
+    # 8. STABLE / NICE (lowest priority — only shows when nothing else fires)
+    - id: ai_nice
+      icon: "😎"
+      level: info
+      priority: 1
+      text: >-
+        COMFORTABLE CONDITIONS: Weather is stable at {{ state_attr('weather.forecast_home','temperature') }}°C
+        with moderate wind. Great time for a walk or airing out the house.
+      when: "true"
+
+    # 9. GAMING MODE (overrides nice when active)
+    - id: ai_gaming
+      icon: "🎮"
+      level: info
+      priority: 3
+      text: "GAMING MODE: Immersive lighting active. Notifications silenced."
+      when: >-
+        {{ is_state('input_boolean.gaming_mode','on') }}
+
 # Birthdays (MM-DD format). During xmas (Dec 1-26), the advent image takes
 # priority — Dec 23's advent image already includes girl_bday in the scene.
 birthdays:

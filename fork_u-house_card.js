@@ -10,82 +10,10 @@ const TRANSLATIONS = {
     en: {
         loading: "Analyzing environmental data...",
         home_median: "Home",
-        
-        // Conditions
-        clear_night: "Clear Night", cloudy: "Cloudy", fog: "Fog", hail: "Hail",
-        lightning: "Thunderstorm", lightning_rainy: "Thunderstorm & Rain",
-        partlycloudy: "Partly Cloudy", pouring: "Pouring Rain", rainy: "Rainy",
-        snowy: "Snowy", sunny: "Sunny", windy: "Windy",
-        
-        // --- AI NARRATIVES ---
-        
-        // 1. DANGER / STORM
-        alert_storm: "⚠️ CRITICAL ALERT: A storm with lightning is active nearby. Strong winds and heavy rain are expected. Please secure loose objects outside and stay indoors for safety.",
-        
-        // 2. HEALTH (AQI / POLLEN)
-        alert_aqi_bad: "😷 SMOG ALERT: Air quality is critical (PM2.5: {val}). Prolonged exposure is dangerous. Keep windows closed and run your air purifier.",
-        alert_aqi_mod: "😶 AIR QUALITY WARNING: PM2.5 levels are elevated ({val}). Sensitive groups should limit outdoor exertion today.",
-        alert_pollen: "🤧 ALLERGY ALERT: High pollen concentration detected. If you suffer from allergies, keep windows shut and have your medication ready.",
-        
-        // 3. FORECAST (FUTURE RAIN/SNOW)
-        advice_rain_soon: "☂️ PLAN AHEAD: Rain is approaching and expected around {time} (approx. {val} mm). Don't leave without an umbrella.",
-        advice_snow_soon: "❄️ WINTER ALERT: Snowfall is expected around {time}. Road conditions may deteriorate rapidly. Drive with caution.",
-        
-        // 4. CURRENT WEATHER
-        advice_rain_now: "🌧️ CURRENTLY RAINING: Intensity is {val} mm/h. Wet surfaces and reduced visibility. Drive safely and wear waterproof gear.",
-        advice_snow_now: "🌨️ SNOWING: Snow is falling right now. Enjoy the view, but dress warmly if you head out.",
-        
-        // 5. UV / SUN
-        alert_uv_high: "☀️ HIGH UV RADIATION: The UV Index is {val}. Unprotected skin can burn quickly. Use sunscreen and wear sunglasses if you go out.",
-        
-        // 6. TEMPERATURE + WIND (Wind Chill)
-        advice_cold_wind: "🥶 WIND CHILL WARNING: It's {val}°C, but the strong wind makes it feel much colder. Wear windproof layers and a hat.",
-        advice_cold: "🧣 COLD WEATHER: Outside temperature is {val}°C. It's chilly—make sure to zip up your jacket and keep warm.",
-        
-        advice_hot: "🔥 HEAT ADVISORY: Temperatures have reached {val}°C. Avoid strenuous activity in direct sunlight and drink plenty of water.",
-        advice_nice: "😎 COMFORTABLE CONDITIONS: Weather is stable at {val}°C with moderate wind. Great time for a walk or airing out the house.",
-        
-        advice_gaming: "🎮 GAMING MODE: Immersive lighting active. Notifications silenced.",
     },
     pl: {
         loading: "Analizuję dane środowiskowe...",
         home_median: "Dom",
-        
-        // Warunki
-        clear_night: "Bezchmurnie", cloudy: "Pochmurno", fog: "Mgła", hail: "Grad",
-        lightning: "Burza", lightning_rainy: "Burza z deszczem",
-        partlycloudy: "Częściowe zachm.", pouring: "Ulewa", rainy: "Deszcz",
-        snowy: "Śnieg", sunny: "Słonecznie", windy: "Wietrznie",
-        
-        // --- AI NARRACJA ---
-        
-        // 1. ZAGROŻENIE
-        alert_storm: "<span class='value-pill pill-1'>⚠️ <b>OSTRZEŻENIE KRYTYCZNE</b></span>  W pobliżu wykryto burzę. Spodziewaj się wyładowań i silnego wiatru. Zabezpiecz ogród i pozostań w domu.",
-        
-        // 2. ZDROWIE (SMOG / PYŁKI)
-        alert_aqi_bad: "<span class='value-pill pill-1'>😷 <b>ALARM SMOGOWY</b></span>  Jakość powietrza jest fatalna <span class='value-pill'>PM2.5: <b>{val}</b></span>. Wyjście na zewnątrz grozi problemami oddechowymi. Zamknij okna i włącz oczyszczacz.",
-        alert_aqi_mod: "<span class='value-pill pill-1'>😶 <b>OSTRZEŻENIE</b></span>  Podwyższone stężenie pyłów <span class='value-pill'>PM2.5: <b>{val}</b></span>. Jakość powietrza jest przeciętna. Osoby wrażliwe powinny unikać wysiłku na zewnątrz.",
-        alert_pollen: "<span class='value-pill pill-1'>🤧 <b>ALARM DLA ALERGIKÓW</b></span>  Wykryto bardzo wysokie stężenie pyłków. Przygotuj leki przeciwhistaminowe i unikaj wietrzenia sypialni.",
-        
-        // 3. PROGNOZA (NADCHODZĄCE)
-        advice_rain_soon: "<span class='value-pill pill-1'>☂️ <b>WEŹ PARASOL</b></span>  Nadciągają opady deszczu. Spodziewaj się ich ok. godziny <span class='value-pill'><b>{time}</b></span>. Prognozowane <span class='value-pill'><b>{val}</b> mm</span>",
-        advice_snow_soon: "<span class='value-pill pill-1'>❄️ <b>ZACHOWAJ OSTROŻNOŚĆ</b></span>  Ok. godziny <span class='value-pill'><b>{time}</b></span> zacznie padać śnieg. Warunki drogowe mogą się gwałtownie pogorszyć.",
-        
-        // 4. AKTUALNA POGODA
-        advice_rain_now: "<span class='value-pill pill-1'>🌧️ <b>DESZCZ</b></span>  Aktualny opad to <span class='value-pill'><b>{val}</b> mm</span>. Jest mokro i ślisko. Jeśli musisz wyjść, koniecznie weź kurtkę przeciwdeszczową.",
-        advice_snow_now: "<span class='value-pill pill-1'>🌨️ <b>ŚNIEG</b></span>  Na zewnątrz sypie śnieg. Jest <span class='value-pill'><b>malowniczo</b></span>, ale pamiętaj o ciepłym ubraniu i czapce.",
-        
-        // 5. UV
-        alert_uv_high: "<span class='value-pill pill-1'>☀️ <b>PROMIENIOWANIE</b></span>  Indeks UV wynosi <span class='value-pill'><b>{val}</b></span>. Skóra może ulec poparzeniu. Koniecznie użyj kremu z filtrem i okularów przeciwsłonecznych.",
-        
-        // 6. TEMPERATURA + WIATR
-        advice_cold_wind: "<span class='value-pill pill-1'>🥶 <b>WIATR</b></span>  Jest <span class='value-pill'><b>{val}</b> °C</span>, ale silny wiatr sprawia, że temperatura odczuwalna jest znacznie niższa. Ubierz się „na cebulkę” i chroń uszy.",
-        advice_cold: "<span class='value-pill pill-1'>🧣 <b>ZIMNO</b></span>  Temperatura wynosi <span class='value-pill'><b>{val}</b> °C</span>. Ubierz ciepłą kurtkę przed wyjściem. Warto sprawdzić szczelność okien.",
-        
-        advice_hot: "<span class='value-pill pill-1'>🔥 <b>GORĄC</b></span>  Temperatura osiągnęła <span class='value-pill'><b>{val}</b> °C</span>. Unikaj słońca w godzinach szczytu, pij dużo wody i zasłoń rolety.",
-        advice_nice: "😎 Pogoda jest stabilna, temperatura przyjemna <span class='value-pill'><b>{val}</b> °C</span>. To <span class='value-pill'>idealny</span> moment na spacer lub przewietrzenie mieszkania.",
-        
-        advice_gaming: "<span class='value-pill pill-1'>🎮 <b>TRYB IMERSYJNY</b></span>  Tryb kina lub gry aktywny. Sterowanie <span class='value-pill'><b>AmbiLight</b></span> włączone.",
     }
 };
 
@@ -129,7 +57,7 @@ class ForkUHouseCard extends HTMLElement {
         // birthdays: [{ name: "boy_bday", date: "03-15" }, { name: "girl_bday", date: "07-22" }],
 
         // AI Sensors
-        aqi_entity: "beresfield_lower_hunter_pm2_5",
+        aqi_entity: "sensor.beresfield_lower_hunter_pm2_5",
         pollen_entity: "sensor.home_pollen_types_32_753374151_625700_grass",
         uv_entity: "sensor.home_uv_index",
         wind_speed_entity: "sensor.home_wind_speed",
@@ -155,12 +83,26 @@ class ForkUHouseCard extends HTMLElement {
       this._lowPerf = perfSetting === 'low';
       this._perfAutoDetect = perfSetting === 'auto';
       this._perfSamples = [];
+      // Reset tips state — clean up old subscription if any
+      if (this._tipsUnsub) { try { this._tipsUnsub(); } catch (e) {} this._tipsUnsub = null; }
+      this._activeTips = [];
+      this._tipRotationIdx = 0;
+      this._tipsTemplateCache = null;
       this._render();
     }
   
     set hass(hass) {
       this._hass = hass;
-      this._updateData();
+      // Coalesce bursts of HA state pushes into one update per animation frame.
+      // HA can fire this setter many times per second on busy instances; without
+      // this debounce we rebuild all badge/alert/energy HTML strings on every push.
+      if (this._updateScheduled) return;
+      this._updateScheduled = true;
+      this._updateRaf = requestAnimationFrame(() => {
+          this._updateScheduled = false;
+          this._updateRaf = null;
+          this._updateData();
+      });
     }
 
     _t(key, repl = {}) {
@@ -177,11 +119,35 @@ class ForkUHouseCard extends HTMLElement {
               this._resizeObserver.observe(card);
           }
       }
+      // Pause the canvas animation loop when the tab is hidden. On low-end
+      // tablets (e.g. fridge displays) a 60fps canvas loop running for hours
+      // in a background tab accumulates GPU/compositor memory and eventually
+      // crashes the renderer.
+      if (!this._visibilityHandler) {
+          this._visibilityHandler = () => {
+              if (document.hidden) {
+                  if (this._animationFrame) {
+                      cancelAnimationFrame(this._animationFrame);
+                      this._animationFrame = null;
+                  }
+              } else if (!this._animationFrame && this._canvas && this._ctx) {
+                  this._animate();
+              }
+          };
+          document.addEventListener('visibilitychange', this._visibilityHandler);
+      }
     }
-  
+
     disconnectedCallback() {
-      if (this._resizeObserver) this._resizeObserver.disconnect();
-      if (this._animationFrame) cancelAnimationFrame(this._animationFrame);
+      if (this._resizeObserver) { this._resizeObserver.disconnect(); this._resizeObserver = null; }
+      if (this._animationFrame) { cancelAnimationFrame(this._animationFrame); this._animationFrame = null; }
+      if (this._updateRaf) { cancelAnimationFrame(this._updateRaf); this._updateRaf = null; this._updateScheduled = false; }
+      if (this._tipsUnsub) { try { this._tipsUnsub(); } catch (e) {} this._tipsUnsub = null; }
+      if (this._tipRotationTimer) { clearInterval(this._tipRotationTimer); this._tipRotationTimer = null; }
+      if (this._visibilityHandler) {
+          document.removeEventListener('visibilitychange', this._visibilityHandler);
+          this._visibilityHandler = null;
+      }
     }
 
     // --- IMAGE SELECTION LOGIC ---
@@ -502,7 +468,8 @@ class ForkUHouseCard extends HTMLElement {
       this._updateEnergy();
       this._handleGamingMode();
       this._handleDayNight();
-      this._generateAIStatus(median);
+      this._setupTips();
+      this._updateMedianPill(median);
   
       // Animation Loop
       if (!this._animationFrame && this._canvas) {
@@ -667,7 +634,7 @@ class ForkUHouseCard extends HTMLElement {
         const container = this.shadowRoot.querySelector('.sprinklers-layer');
         if (!container) return;
         const sprinklers = this._config.sprinklers || [];
-        container.innerHTML = sprinklers.map(zone => {
+        const html = sprinklers.map(zone => {
             const state = this._hass.states[zone.entity]?.state;
             if (!state && !this._editMode) return '';
             let editHidden = false;
@@ -695,6 +662,7 @@ class ForkUHouseCard extends HTMLElement {
                 ${label ? `<span class="sprinkler-label">${label}</span>` : ''}
               </div>`;
         }).join('');
+        if (container.innerHTML !== html) container.innerHTML = html;
     }
 
     _isBinCollectionDay(bin, checkDate) {
@@ -1141,6 +1109,177 @@ class ForkUHouseCard extends HTMLElement {
           ${nodesHtml}`;
     }
 
+    // --- TIPS ENGINE ---
+    // Single Jinja2 template subscription returns sorted JSON list of active tips.
+    // HA does all the work server-side; the card just renders the result.
+
+    _buildTipsTemplate(rules) {
+        // Wrap each rule in a try block via {% if %} so a broken rule doesn't kill the whole template.
+        // Each active rule appends a dict to the tips list.
+        const ruleBlocks = rules.map(rule => {
+            const id = (rule.id || '').replace(/'/g, "\\'");
+            const icon = (rule.icon || 'mdi:information').replace(/'/g, "\\'");
+            const level = (rule.level || 'info').replace(/'/g, "\\'");
+            const priority = parseInt(rule.priority ?? 5);
+            const text = rule.text || '';
+            const when = rule.when || 'false';
+
+            // The text field can itself contain {{...}} interpolation
+            // We embed it as a Jinja2 expression that renders the text
+            // Use ~ for string concatenation, escape single quotes
+            const textExpr = "'" + text.replace(/'/g, "\\'") + "'";
+
+            return `
+{# Rule: ${id} #}
+{% if ${when} %}
+  {% set tips = tips + [{
+    'id': '${id}',
+    'icon': '${icon}',
+    'level': '${level}',
+    'priority': ${priority},
+    'text': ${textExpr}
+  }] %}
+{% endif %}`;
+        }).join('\n');
+
+        return `{% set tips = [] %}${ruleBlocks}\n{{ tips | sort(attribute='priority', reverse=true) | tojson }}`;
+    }
+
+    _setupTips() {
+        const tipsCfg = this._config.tips;
+        if (!tipsCfg || !tipsCfg.rules || tipsCfg.rules.length === 0) {
+            // No tips config — clean up any existing subscription and hide footer
+            if (this._tipsUnsub) { try { this._tipsUnsub(); } catch (e) {} this._tipsUnsub = null; }
+            const footer = this.shadowRoot.querySelector('.footer');
+            const statusEl = this.shadowRoot.querySelector('.footer-content');
+            if (statusEl) statusEl.innerHTML = '';
+            if (footer) footer.setAttribute('data-status', 'normal');
+            return;
+        }
+
+        // Build template once and subscribe — only re-subscribe if the template changes.
+        // Track in-flight subscriptions with _tipsPending so rapid hass pushes during the
+        // subscribe() round-trip don't create orphaned duplicate subscriptions.
+        const newTemplate = this._buildTipsTemplate(tipsCfg.rules);
+        if (newTemplate === this._tipsTemplateCache && (this._tipsUnsub || this._tipsPending)) return;
+
+        // Clean up old subscription if rules changed
+        if (this._tipsUnsub) { try { this._tipsUnsub(); } catch (e) {} this._tipsUnsub = null; }
+        this._tipsTemplateCache = newTemplate;
+
+        // Subscribe to render_template
+        if (!this._hass?.connection?.subscribeMessage) return;
+
+        this._tipsPending = true;
+        this._hass.connection.subscribeMessage(
+            (msg) => {
+                try {
+                    this._activeTips = JSON.parse(msg.result || '[]');
+                } catch (e) {
+                    console.warn('[fork-u-house] Tips JSON parse failed:', e, msg.result);
+                    this._activeTips = [];
+                }
+                this._renderTips();
+                this._setupTipRotation();
+            },
+            { type: 'render_template', template: newTemplate, timeout: 9 }
+        ).then(unsub => {
+            this._tipsPending = false;
+            // If the template changed while we were subscribing, this subscription is
+            // stale — abort it immediately so we don't leak it.
+            if (this._tipsTemplateCache !== newTemplate) {
+                try { unsub(); } catch (e) {}
+                return;
+            }
+            this._tipsUnsub = unsub;
+        }).catch(err => {
+            this._tipsPending = false;
+            console.warn('[fork-u-house] Tips subscription failed:', err);
+        });
+    }
+
+    _setupTipRotation() {
+        const tipsCfg = this._config.tips || {};
+        const display = tipsCfg.display || 'rotating';
+        const seconds = tipsCfg.rotation_seconds ?? 8;
+
+        // Clear any existing timer
+        if (this._tipRotationTimer) {
+            clearInterval(this._tipRotationTimer);
+            this._tipRotationTimer = null;
+        }
+
+        // Only rotate if multiple tips and display mode is rotating
+        if (display === 'rotating' && (this._activeTips?.length ?? 0) > 1) {
+            this._tipRotationTimer = setInterval(() => {
+                this._tipRotationIdx = (this._tipRotationIdx + 1) % this._activeTips.length;
+                this._renderTips();
+            }, seconds * 1000);
+        }
+    }
+
+    _renderTips() {
+        const tipsCfg = this._config.tips;
+        if (!tipsCfg) return;
+
+        const footer = this.shadowRoot.querySelector('.footer');
+        const statusEl = this.shadowRoot.querySelector('.footer-content');
+        if (!footer || !statusEl) return;
+
+        const tips = this._activeTips || [];
+        const display = tipsCfg.display || 'rotating';
+        const hideEmpty = tipsCfg.hide_when_empty ?? true;
+        const idleMessage = tipsCfg.idle_message;
+
+        // No active tips
+        if (tips.length === 0) {
+            if (hideEmpty && !idleMessage) {
+                footer.style.display = 'none';
+                return;
+            }
+            footer.style.display = '';
+            footer.setAttribute('data-status', 'normal');
+            footer.classList.remove('tips-active');
+            if (idleMessage) {
+                statusEl.innerHTML = `<span class="tip-text">${idleMessage}</span>`;
+            }
+            return;
+        }
+
+        footer.style.display = '';
+        footer.classList.add('tips-active');
+
+        // Pick which tip(s) to show
+        let visibleTips;
+        if (display === 'stacked') {
+            visibleTips = tips.slice(0, 3);
+        } else if (display === 'single') {
+            visibleTips = [tips[0]];
+        } else {
+            // rotating
+            this._tipRotationIdx = this._tipRotationIdx % tips.length;
+            visibleTips = [tips[this._tipRotationIdx]];
+        }
+
+        // Highest level among visible tips drives the footer styling
+        const levelRank = { info: 0, warn: 1, danger: 2 };
+        const topLevel = visibleTips.reduce((max, t) => {
+            return (levelRank[t.level] ?? 0) > (levelRank[max] ?? 0) ? t.level : max;
+        }, 'info');
+        const levelMap = { info: 'normal', warn: 'warn', danger: 'danger' };
+        footer.setAttribute('data-status', levelMap[topLevel] || 'normal');
+
+        // Render
+        const html = visibleTips.map(t => {
+            const iconHtml = (t.icon || '').startsWith('mdi:')
+                ? `<ha-icon icon="${t.icon}" class="tip-icon" style="--mdc-icon-size: 18px;"></ha-icon>`
+                : `<span class="tip-icon-emoji">${t.icon || ''}</span>`;
+            return `<div class="tip-row"><span class="tip-icon-wrap">${iconHtml}</span><span class="tip-text">${t.text}</span></div>`;
+        }).join('');
+
+        statusEl.innerHTML = html;
+    }
+
     _handleGamingMode() {
         const partyEntity = this._config.party_mode_entity;
         const isGaming = partyEntity && this._hass.states[partyEntity]?.state === 'on';
@@ -1159,115 +1298,12 @@ class ForkUHouseCard extends HTMLElement {
         return isNight;
     }
 
-    // --- AI STATUS LOGIC (Detailed & Explained) ---
-    _generateAIStatus(median) {
-        const wObj = this._hass.states[this._config.weather_entity];
-        if (!wObj) return;
-
-        const condition = this._config.test_weather_state || wObj.state;
-        const temp = wObj.attributes.temperature;
-        const forecast = wObj.attributes.forecast || [];
-        
-        // Sensory
-        const aqiVal = this._getStateVal(this._config.aqi_entity);
-        const uvVal = this._getStateVal(this._config.uv_entity);
-        const { speed: windSpeed } = this._getWindData();
-        
-        // Pollen Logic
-        let isHighPollen = false;
-        if (this._config.pollen_entity) {
-            const pState = this._hass.states[this._config.pollen_entity]?.state;
-            if (pState) {
-                // Obsługa tekstowa (high) lub liczbowa (>50)
-                if (['high', 'very_high', 'extreme', 'red'].includes(pState.toLowerCase())) isHighPollen = true;
-                if (!isNaN(parseFloat(pState)) && parseFloat(pState) > 50) isHighPollen = true;
-            }
-        }
-
-        let msg = "";
-        let level = "normal";
-
-        // Check for Gaming Mode
-        const isGaming = this._handleGamingMode();
-
-        // --- HIERARCHIA WAŻNOŚCI ---
-        
-        // 1. ZAGROŻENIE ŻYCIA (Burze)
-        if (['lightning', 'lightning-rainy', 'hail'].includes(condition)) {
-            msg = this._t('alert_storm'); 
-            level = "danger";
-        }
-        // 2. ZDROWIE: SMOG
-        else if (aqiVal !== null && aqiVal > 50) {
-             if (aqiVal > 100) {
-                 msg = this._t('alert_aqi_bad', {val: aqiVal});
-                 level = "danger";
-             } else {
-                 msg = this._t('alert_aqi_mod', {val: aqiVal});
-                 level = "warn";
-             }
-        }
-        // 3. ZDROWIE: PYŁKI
-        else if (isHighPollen) {
-            msg = this._t('alert_pollen');
-            level = "warn";
-        }
-        // 4. PLANOWANIE: NADCHODZĄCY DESZCZ/ŚNIEG
-        else {
-            const nextRain = forecast.slice(0, 3).find(f => ['rainy', 'pouring', 'snowy'].includes(f.condition) || (f.precipitation > 0));
-            
-            // Jeśli ma padać w ciągu 3h
-            if (nextRain) {
-                const time = new Date(nextRain.datetime).getHours() + ":00";
-                const p = nextRain.precipitation || "~";
-                msg = nextRain.condition === 'snowy' 
-                    ? this._t('advice_snow_soon', {time}) 
-                    : this._t('advice_rain_soon', {time, val: p});
-                level = "warn";
-            }
-            // 5. BIEŻĄCE WARUNKI
-            else if (['rainy', 'pouring'].includes(condition)) {
-                msg = this._t('advice_rain_now', {val: wObj.attributes.precipitation || "~"}); 
-                level = "warn";
-            }
-            else if (['snowy', 'snowy-rainy'].includes(condition)) {
-                msg = this._t('advice_snow_now'); 
-                level = "warn";
-            }
-            // 6. UV (LATO)
-            else if (uvVal !== null && uvVal > 6) {
-                msg = this._t('alert_uv_high', {val: uvVal}); 
-                level = "warn";
-            }
-            // 7. TEMPERATURA + WIATR (ZIMA)
-            else if (temp < 10 && windSpeed > 20) {
-                // Jest zimno i wieje - Wind Chill
-                msg = this._t('advice_cold_wind', {val: temp});
-            }
-            else if (temp < 5) {
-                msg = this._t('advice_cold', {val: temp});
-            } else if (temp > 35) {
-                msg = this._t('advice_hot', {val: temp}); 
-                level = "warn";
-            } 
-            // 8. STABILNIE
-            else {
-                msg = this._t('advice_nice', {val: temp});
-            }
-        }
-        
-        // Append Gaming status
-        if (isGaming && level === 'normal') {
-            msg = this._t('advice_gaming');
-        }
-
+    // --- FOOTER MEDIAN ---
+    _updateMedianPill(median) {
+        // Just updates the median temperature pill in the footer.
+        // All footer content/styling is now driven by the tips engine.
         const medianEl = this.shadowRoot.querySelector('.median-pill');
-        const statusEl = this.shadowRoot.querySelector('.footer-content');
-        const footer = this.shadowRoot.querySelector('.footer');
-
         if (medianEl) medianEl.innerHTML = `${this._t('home_median')}: <b>${median.toFixed(1)}°C</b>`;
-        if (statusEl) statusEl.innerHTML = msg;
-        if (footer) footer.setAttribute('data-status', level);
     }
 
     _getStateVal(id) {
@@ -1541,14 +1577,34 @@ class ForkUHouseCard extends HTMLElement {
           .median-pill b { color: #fff; }
           
           /* Allow multi-line text for verbose AI messages */
-          .footer-content { 
-              font-size: 0.85rem; color: #ccc; 
-              white-space: normal; line-height: 1.8; 
-              display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; 
+          .footer-content {
+              font-size: 0.85rem; color: #ccc;
+              white-space: normal; line-height: 1.8;
+              display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
               /*
               overflow: hidden;
               */
           }
+
+          /* TIPS ENGINE */
+          .footer.tips-active .footer-content {
+              display: flex; flex-direction: column; gap: 4px;
+              -webkit-line-clamp: unset;
+          }
+          .tip-row {
+              display: flex; align-items: center; gap: 8px;
+              font-size: 0.75rem; line-height: 1.4;
+          }
+          .tip-icon-wrap {
+              display: inline-flex; align-items: center; justify-content: center;
+              flex-shrink: 0;
+          }
+          .tip-icon, .tip-icon-emoji {
+              font-size: 1rem;
+          }
+          .tip-text { color: #fff; }
+          .footer[data-status="warn"] .tip-text { color: #FBBF24; }
+          .footer[data-status="danger"] .tip-text { color: #F87171; }
 
           /* LOW PERFORMANCE MODE — disable expensive backdrop-filter blur */
           .card.low-perf .badge { backdrop-filter: none; background: rgba(20, 20, 25, 0.9); }

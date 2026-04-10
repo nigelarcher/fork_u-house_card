@@ -295,7 +295,7 @@ rooms:
   # Basic temperature sensor (default unit: °, uses temp colour thresholds)
   - name: Lounge
     entity: sensor.lounge_temp
-    x: 40
+    "x": 40
     "y": 45
     weight: 1
 
@@ -303,7 +303,7 @@ rooms:
   - name: Humidity
     entity: sensor.lounge_humidity
     unit: "%"
-    x: 60
+    "x": 60
     "y": 45
     weight: 0  # excluded from median temp
     thresholds: [30, 50, 70]
@@ -313,7 +313,7 @@ rooms:
   # Fermenter with tight brewing range
   - name: Fermenter 1
     entity: sensor.fermenter_temp_1_temperature
-    x: 50
+    "x": 50
     "y": 50
     weight: 1
     thresholds: [16, 20, 24]
@@ -324,7 +324,7 @@ rooms:
   - name: Solar
     entity: sensor.solar_power
     unit: "W"
-    x: 70
+    "x": 70
     "y": 50
     weight: 0
 
@@ -356,7 +356,7 @@ rooms:
     entity: sensor.solar_power
     unit: "W"
     show_when: { gt: 0 }
-    x: 70
+    "x": 70
     "y": 50
     weight: 0
 
@@ -365,7 +365,7 @@ rooms:
   - name: Pool
     entity: sensor.pool_temperature
     show_when: { range: [20, 35] }
-    x: 80
+    "x": 80
     "y": 70
     weight: 0
 
@@ -413,7 +413,7 @@ alerts:
     icon: "mdi:motion-sensor"
     label: "Motion"
     color: "#F87171"
-    x: 80
+    "x": 80
     "y": 20
 
   # Front door camera (using mdi icon)
@@ -421,20 +421,20 @@ alerts:
     icon: "mdi:door"
     label: "Door"
     color: "#FB923C"
-    x: 30
+    "x": 30
     "y": 35
 
   # Pool pump running — no background, just a floating icon
   - entity: switch.pool_pump
     icon: "🏊"
-    x: 75
+    "x": 75
     "y": 70
 
   # Sprinklers — mdi icon, no background, custom icon colour
   - entity: switch.garden_sprinklers
     icon: "mdi:sprinkler"
     icon_color: "#38BDF8"
-    x: 85
+    "x": 85
     "y": 60
 
   # EV charging — mdi icon, no background, coloured icon
@@ -442,7 +442,7 @@ alerts:
     show_when: ["charging", "no_power"]
     icon: "mdi:lightning-bolt"
     icon_color: "#FBBF24"
-    x: 35
+    "x": 35
     "y": 45
 
   # Garage open (mdi icon with colour + label)
@@ -451,7 +451,7 @@ alerts:
     icon: "mdi:garage-open"
     label: "Garage"
     color: "#FBBF24"
-    x: 45
+    "x": 45
     "y": 80
 
   # Alarm triggered — show for multiple states (using mdi icon)
@@ -460,7 +460,7 @@ alerts:
     icon: "mdi:alarm-light"
     label: "ALARM"
     color: "#DC2626"
-    x: 50
+    "x": 50
     "y": 10
 
 # ---- Sprinkler Zones ----
@@ -474,19 +474,19 @@ alerts:
 sprinklers:
   - entity: switch.sprinkler_front_lawn
     label: "Front"
-    x: 30
+    "x": 30
     "y": 75
 
   - entity: switch.sprinkler_back_garden
     label: "Back"
     color: "#34D399"
     size: large
-    x: 70
+    "x": 70
     "y": 30
 
   - entity: switch.sprinkler_side_strip
     size: small
-    x: 10
+    "x": 10
     "y": 50
 
 # ---- Bin Night ----
@@ -511,7 +511,7 @@ bins:
     cadence: weekly
     color: "#DC2626"
     label: "General"
-    x: 12
+    "x": 12
     "y": 88
 
   # Yellow lid — recycling (fortnightly)
@@ -520,7 +520,7 @@ bins:
     anchor_date: "2026-04-07"   # a known recycling collection date
     color: "#FBBF24"
     label: "Recycle"
-    x: 18
+    "x": 18
     "y": 88
 
   # Green lid — green waste (fortnightly, alternates with recycling)
@@ -529,7 +529,7 @@ bins:
     anchor_date: "2026-04-14"   # the OTHER week from recycling
     color: "#10B981"
     label: "Green"
-    x: 24
+    "x": 24
     "y": 88
 
 # ---- Energy Flow ----
@@ -587,7 +587,7 @@ bins:
 #     entity: sensor.home_consumption
 #     icon: "mdi:home"
 #     color: "#A78BFA"
-#     x: 48
+#     "x": 48
 #     "y": 40
 #   node_positions:
 #     solar: { x: 57, "y": 12 }
@@ -602,7 +602,7 @@ bins:
 #       direction: consumer
 #       max: 5
 #       size: 30
-#       x: 32
+#       "x": 32
 #       "y": 58
 #     - name: EV
 #       entity: sensor.ev_charger_power
@@ -611,7 +611,7 @@ bins:
 #       direction: consumer
 #       max: 7
 #       size: 30
-#       x: 18
+#       "x": 18
 #       "y": 72
 
 # --- Example 2: Full AUTO (sources + consumers from HA Energy Dashboard) ---
@@ -619,7 +619,7 @@ bins:
 #   auto: true
 #   home:
 #     entity: sensor.home_consumption
-#     x: 48
+#     "x": 48
 #     "y": 40
 #   node_positions:
 #     solar: { x: 57, "y": 12 }
@@ -637,7 +637,7 @@ energy:
     name: "Home"
     color: "#A78BFA"
     unit: "kW"
-    x: 48
+    "x": 48
     "y": 40
 
   nodes:
@@ -648,7 +648,7 @@ energy:
       color: "#FBBF24"
       direction: source
       max: 10
-      x: 57
+      "x": 57
       "y": 12
 
     - name: Battery
@@ -658,7 +658,7 @@ energy:
       direction: source
       max: 5
       battery_entity: sensor.battery_soc  # SOC sensor — auto-shows fill level icon + percentage
-      x: 15
+      "x": 15
       "y": 30
 
     - name: Grid
@@ -667,7 +667,7 @@ energy:
       color: "#60A5FA"
       direction: source
       max: 8
-      x: 88
+      "x": 88
       "y": 55
 
     # --- Consumers ---
@@ -678,7 +678,7 @@ energy:
       direction: consumer
       max: 5
       size: 30
-      x: 32
+      "x": 32
       "y": 58
 
     - name: EV
@@ -688,7 +688,7 @@ energy:
       direction: consumer
       max: 7
       size: 30
-      x: 18
+      "x": 18
       "y": 72
 
     - name: Pool
@@ -698,6 +698,6 @@ energy:
       direction: consumer
       max: 1.5
       size: 30
-      x: 72
+      "x": 72
       "y": 70
 

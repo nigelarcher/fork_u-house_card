@@ -906,14 +906,17 @@ class ForkUHouseCard extends HTMLElement {
         const w = card.offsetWidth || 800;
         const h = card.offsetHeight || 533;
 
-        // Helper: get value in kW, auto-converting from W if needed
+        // Helper: get value in kW, auto-converting from W if needed.
+        // Only accepts power units (W, kW) — energy units (Wh, kWh) are
+        // cumulative totals, not instantaneous readings, and would give
+        // nonsensical flow values if used here.
         const getKw = (entityId, cfgUnit) => {
             const raw = this._getStateVal(entityId) ?? 0;
             if (cfgUnit) return { val: raw, unit: cfgUnit }; // manual unit override
             const stateObj = this._hass.states[entityId];
             const haUnit = stateObj?.attributes?.unit_of_measurement ?? '';
-            if (haUnit === 'W' || haUnit === 'Wh') return { val: raw / 1000, unit: 'kW' };
-            if (haUnit === 'kW' || haUnit === 'kWh') return { val: raw, unit: 'kW' };
+            if (haUnit === 'W') return { val: raw / 1000, unit: 'kW' };
+            if (haUnit === 'kW') return { val: raw, unit: 'kW' };
             return { val: raw, unit: haUnit || 'kW' };
         };
 
@@ -1124,10 +1127,20 @@ class ForkUHouseCard extends HTMLElement {
             const text = rule.text || '';
             const when = rule.when || 'false';
 
-            // The text field can itself contain {{...}} interpolation
-            // We embed it as a Jinja2 expression that renders the text
-            // Use ~ for string concatenation, escape single quotes
-            const textExpr = "'" + text.replace(/'/g, "\\'") + "'";
+            // The text field can contain {{...}} interpolation that must be
+            // evaluated by Jinja, not treated as a literal. Split on placeholders
+            // and join with ~ (Jinja string concat) so each placeholder becomes
+            // a real expression while the surrounding literal chunks are quoted
+            // strings with single-quotes escaped.
+            const textExpr = text
+                ? text
+                    .split(/(\{\{.*?\}\})/g)
+                    .filter(p => p)
+                    .map(p => p.startsWith('{{')
+                        ? `(${p.slice(2, -2).trim()})`
+                        : `'${p.replace(/'/g, "\\'")}'`)
+                    .join(' ~ ')
+                : "''";
 
             return `
 {# Rule: ${id} #}

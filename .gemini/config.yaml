@@ -1,0 +1,36 @@
+# Gemini Code Assist configuration
+# Docs: https://developers.google.com/gemini-code-assist/docs/customize-gemini-behavior-github
+#
+# Reviews are enabled on all PRs. The consumer tier gives 33 reviews/day which
+# is ample for this repo. If reviews become noisy on feature branches, flip
+# code_review.disable to true and use `/gemini review` as a PR comment to
+# trigger a one-off review manually.
+
+have_fun: false
+
+code_review:
+  disable: false
+  # LOW floods, HIGH misses subtle bugs. MEDIUM caught the real textExpr and
+  # energy-unit bugs in the CI/CD PR — keep it here.
+  comment_severity_threshold: MEDIUM
+  max_review_comments: -1
+  pull_request_opened:
+    help: false
+    summary: true
+    code_review: true
+    # Don't burn review quota on work-in-progress PRs
+    include_drafts: false
+
+# Focus reviews on the card source and config. Skip tests (we have our own
+# suite), generated images, markdown, node_modules, and CI workflows.
+ignore_patterns:
+  - "node_modules/**"
+  - "tests/**"
+  - "images/**"
+  - "src/**"
+  - "*.md"
+  - ".github/**"
+  - "colab_generator/**"
+
+memory_config:
+  disabled: false

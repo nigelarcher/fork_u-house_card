@@ -17,7 +17,8 @@ Key systems:
 - **Bin night** — isometric SVG wheelie bins that appear on collection day (and from 5pm the night before). Supports weekly/fortnightly/monthly cadence with anchor date calculation.
 - **Energy flow** (`_updateEnergy`) — power flow overlay with animated SVG dots between nodes, like HA's energy distribution card. Supports auto-discovery from HA Energy Dashboard (`energy/get_prefs` websocket) and/or manual node config. Sources flow to home, consumers flow from home. Dot count and speed scale with power values. Prefs cached for 60s.
 - **Visibility rules** (`_evaluateVisibility`) — shared engine for `show_when` on rooms, alerts, sprinklers, and energy nodes. Supports exact match, arrays, and comparison operators (gt, lt, gte, lte, eq, neq, range).
-- **AI status** — footer text with contextual weather/health advice based on sensor hierarchy (storms > AQI > pollen > forecast > UV > wind chill > temperature).
+- **AI status** — footer text with contextual weather/health advice based on sensor hierarchy (storms > AQI > pollen > forecast > UV > wind chill > temperature). Used as fallback when no `tips:` config is present.
+- **Tips engine** (`_setupTips`, `_buildTipsTemplate`, `_renderTips`) — replaces AI status when `tips:` config is set. All rules combined into a single Jinja2 template, sent via `render_template` websocket subscription. HA evaluates server-side and pushes a sorted JSON list of active tips. Card just renders. Supports `single`, `rotating`, `stacked` display modes. Hides footer when no tips active. See [TIPS_SPEC.md](TIPS_SPEC.md).
 - **Gaming mode** — ambient colour blob overlay triggered by a boolean entity.
 
 ### Image Generator (`colab_generator/generate_house_assets.ipynb`)

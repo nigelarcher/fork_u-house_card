@@ -1,0 +1,117 @@
+name: Cleanup pre-releases
+
+on:
+  # Fires when a branch or tag is deleted.
+  delete:
+  # Weekly sweep for pre-releases older than the retention window.
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      retention_days:
+        description: "Delete pre-releases older than N days"
+        required: false
+        default: "90"
+      dry_run:
+        description: "Log what would be deleted without deleting"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup-deleted-branch:
+    # Only run on branch deletions, not tag deletions.
+    if: github.event_name == 'delete' && github.event.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Delete pre-releases for deleted branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DELETED_REF: ${{ github.event.ref }}
+        run: |
+          set -e
+          # Sanitize the branch name the same way release.yml does, so the
+          # pattern matches tags that were created for it.
+          SANITIZED=$(echo "$DELETED_REF" | tr '/' '-' | tr -cd '[:alnum:]-_.')
+          if [ -z "$SANITIZED" ]; then
+            echo "Empty sanitized branch name, nothing to do"
+            exit 0
+          fi
+          PATTERN="-${SANITIZED}-"
+          echo "Deleting pre-releases matching *${PATTERN}* (branch: $DELETED_REF)"
+
+          gh release list --limit 500 --json tagName,isPrerelease \
+            --jq ".[] | select(.isPrerelease) | select(.tagName | contains(\"${PATTERN}\")) | .tagName" \
+            > to_delete.txt || true
+
+          if [ ! -s to_delete.txt ]; then
+            echo "Nothing to delete"
+            exit 0
+          fi
+
+          while IFS= read -r TAG; do
+            [ -z "$TAG" ] && continue
+            echo "Deleting $TAG"
+            gh release delete "$TAG" --yes --cleanup-tag || echo "  (failed, continuing)"
+          done < to_delete.txt
+
+  cleanup-old-prereleases:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Delete pre-releases older than retention window
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RETENTION_DAYS: ${{ github.event.inputs.retention_days || '90' }}
+          # Schedule runs default to non-dry-run; manual runs default to dry-run.
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: |
+          set -e
+          echo "Retention: $RETENTION_DAYS days"
+          echo "Dry run:   $DRY_RUN"
+
+          # Cutoff timestamp in seconds since epoch
+          CUTOFF=$(date -u -d "$RETENTION_DAYS days ago" +%s)
+          echo "Cutoff: $(date -u -d "@$CUTOFF" --iso-8601=seconds)"
+
+          # gh release list gives us createdAt in ISO8601
+          gh release list --limit 500 --json tagName,isPrerelease,createdAt \
+            --jq ".[] | select(.isPrerelease) | [.tagName, .createdAt] | @tsv" \
+            > prereleases.tsv || true
+
+          if [ ! -s prereleases.tsv ]; then
+            echo "No pre-releases found"
+            exit 0
+          fi
+
+          DELETED=0
+          while IFS=$'\t' read -r TAG CREATED; do
+            [ -z "$TAG" ] && continue
+            CREATED_TS=$(date -u -d "$CREATED" +%s)
+            if [ "$CREATED_TS" -lt "$CUTOFF" ]; then
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "[DRY RUN] Would delete $TAG (created $CREATED)"
+              else
+                echo "Deleting $TAG (created $CREATED)"
+                gh release delete "$TAG" --yes --cleanup-tag || echo "  (failed, continuing)"
+              fi
+              DELETED=$((DELETED + 1))
+            else
+              echo "Keeping  $TAG (created $CREATED)"
+            fi
+          done < prereleases.tsv
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "[DRY RUN] Would have deleted $DELETED pre-release(s)"
+          else
+            echo "Deleted $DELETED pre-release(s)"
+          fi

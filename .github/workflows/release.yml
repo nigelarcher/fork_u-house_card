@@ -1,0 +1,176 @@
+name: Release
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    # Skip the auto-commit loop — when the release job pushes the bumped
+    # hacs.json back to main it uses [skip ci] in the message, but belt &
+    # braces: also skip if the commit message already contains it.
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use a PAT if you want the auto-bump commit to re-trigger other
+          # workflows. With the default GITHUB_TOKEN, pushes from Actions
+          # do NOT trigger further workflow runs — which is what we want.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read version from hacs.json
+        id: version
+        run: |
+          VERSION=$(jq -r .version hacs.json)
+          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            echo "::error::hacs.json has no 'version' field"
+            exit 1
+          fi
+          echo "current=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Current version in hacs.json: $VERSION"
+
+      - name: Determine release version
+        id: release
+        env:
+          CURRENT: ${{ steps.version.outputs.current }}
+          REF_NAME: ${{ github.ref_name }}
+          IS_MAIN: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          set -e
+
+          if [ "$IS_MAIN" = "true" ]; then
+            # Main branch: check if v{current} tag already exists.
+            #  - not exists → user manually bumped minor/major → release as-is
+            #  - exists     → auto-bump patch
+            if git rev-parse "v$CURRENT" >/dev/null 2>&1; then
+              IFS='.' read -r MAJ MIN PAT <<< "$CURRENT"
+              PAT=$((PAT + 1))
+              NEW="$MAJ.$MIN.$PAT"
+              echo "Tag v$CURRENT exists → auto-bumping patch to $NEW"
+              echo "bump=true" >> "$GITHUB_OUTPUT"
+            else
+              NEW="$CURRENT"
+              echo "Tag v$CURRENT does not exist → releasing as-is (manual bump)"
+              echo "bump=false" >> "$GITHUB_OUTPUT"
+            fi
+            echo "tag=v$NEW" >> "$GITHUB_OUTPUT"
+            echo "version=$NEW" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            # Feature branch: v{current}-{sanitized-branch}-{shortsha}, pre-release
+            SANITIZED=$(echo "$REF_NAME" | tr '/' '-' | tr -cd '[:alnum:]-_.')
+            SHORT_SHA=$(git rev-parse --short HEAD)
+            NEW="${CURRENT}-${SANITIZED}-${SHORT_SHA}"
+            echo "Branch release: $NEW"
+            echo "bump=false" >> "$GITHUB_OUTPUT"
+            echo "tag=v$NEW" >> "$GITHUB_OUTPUT"
+            echo "version=$NEW" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "sanitized_branch=$SANITIZED" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Abort if tag already exists
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::warning::Tag $TAG already exists — skipping release"
+            echo "SKIP=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Bump hacs.json and commit (main only, when auto-bumping)
+        if: env.SKIP != 'true' && steps.release.outputs.bump == 'true'
+        env:
+          NEW_VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -e
+          jq --arg v "$NEW_VERSION" '.version = $v' hacs.json > hacs.json.tmp
+          mv hacs.json.tmp hacs.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hacs.json
+          git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
+          git tag "$TAG"
+          git push origin HEAD:main
+          git push origin "$TAG"
+
+      - name: Tag existing commit (main, manual bump)
+        if: env.SKIP != 'true' && steps.release.outputs.bump == 'false' && github.ref == 'refs/heads/main'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Tag branch commit (pre-release)
+        if: env.SKIP != 'true' && github.ref != 'refs/heads/main'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Delete prior pre-releases for this branch (rolling)
+        if: env.SKIP != 'true' && github.ref != 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SANITIZED_BRANCH: ${{ steps.release.outputs.sanitized_branch }}
+          CURRENT: ${{ steps.version.outputs.current }}
+        run: |
+          set -e
+          # Match pattern: v{any-version}-{this-branch}-{any-sha}
+          # Use --cleanup-tag so the tag goes with the release.
+          PATTERN="-${SANITIZED_BRANCH}-"
+          echo "Looking for existing pre-releases matching *${PATTERN}*"
+          gh release list --limit 200 --json tagName,isPrerelease \
+            --jq ".[] | select(.isPrerelease) | select(.tagName | contains(\"${PATTERN}\")) | .tagName" \
+            > to_delete.txt || true
+          if [ -s to_delete.txt ]; then
+            while IFS= read -r TAG; do
+              [ -z "$TAG" ] && continue
+              echo "Deleting old pre-release $TAG"
+              gh release delete "$TAG" --yes --cleanup-tag || echo "  (failed, continuing)"
+            done < to_delete.txt
+          else
+            echo "No prior pre-releases to clean up"
+          fi
+
+      - name: Create GitHub Release
+        if: env.SKIP != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+          PRERELEASE: ${{ steps.release.outputs.prerelease }}
+        run: |
+          set -e
+          FLAGS=""
+          if [ "$PRERELEASE" = "true" ]; then
+            FLAGS="--prerelease"
+          fi
+          gh release create "$TAG" \
+            fork_u-house_card.js \
+            --title "$TAG" \
+            --generate-notes \
+            $FLAGS

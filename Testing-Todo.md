@@ -8,7 +8,7 @@ the rest. Keep this file up to date as tests get added or the card is refactored
 - **Framework:** Vitest + jsdom
 - **Location:** `tests/`
 - **Run:** `npm test` (or `npm run test:watch`)
-- **Count:** 277 tests across 15 files, full run in ~1s
+- **Count:** 323 tests across 16 files, full run in ~1s
 - **CI:** gated on every push and PR via `.github/workflows/test.yml`;
   release workflow blocks on the same job
 
@@ -58,7 +58,7 @@ shadowRoot for assertions).
 | Method | Why hard | Suggested refactor |
 |---|---|---|
 | `_updateEnergy` | Animated SVG dot generation intertwined with DOM creation and power math | **Split into two methods:** `_computeEnergyFlow(nodes, hass) → {dots, speeds, directions}` (pure) and `_renderEnergyFlow(flow)` (DOM). Test the math branch, leave the DOM branch to Tier 3 treatment. ~3 hours refactor, unlocks ~20 tests |
-| ~~`_setupTips`, `_renderTips`, `_setupTipRotation`~~ | **SKIP — being rewritten** | Tips engine is being completely rewritten on the `tipsEngine` branch. Do not write tests against the current implementation. Revisit test strategy once the rewrite lands |
+| `_setupTips`, `_renderTips`, `_setupTipRotation` | **DONE** | `tips-engine.test.js` — 34 tests covering subscription lifecycle (subscribe, re-subscribe on rule change, malformed JSON, cleanup), all 3 display modes (single/stacked/rotating), icon rendering (mdi: vs emoji), level-based footer styling (info/warn/danger escalation), idle messages, hide_when_empty, rotation timer management with fake timers |
 | `_updateData` (orchestrator) | Calls every other `_update*` method; hard to test in isolation | Not worth isolating; covered indirectly once each `_update*` method is tested individually |
 | Weather canvas engine (`_animate`, `_drawRain`, `_drawSnow`, `_drawFog`, `_drawStars`, `_drawClouds`, `_createCloud`, `_handleLightning`, `_triggerLightning`, `_drawBolt`, `_resizeCanvas`, `_initStars`) | Canvas 2D context not implemented in jsdom. Would need `node-canvas` native build (painful on Windows CI) or headless browser | **Two options:** (a) extract each draw function into a pure module that takes a context object and state, use a spy-context in tests; or (b) leave untested — these are cosmetic and bugs are immediately visible to a human. **Recommendation: (b).** Cost/benefit is poor |
 | `_fetchEnergyPrefs` | Websocket call with a 60s cache | Easy to test with a mocked `_hass.callWS`. ~30 min, ~5 tests |

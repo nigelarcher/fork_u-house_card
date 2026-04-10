@@ -65,6 +65,11 @@ describe('_buildTipsTemplate', () => {
     expect(tpl).toContain("'priority': 7");
   });
 
+  it('falls back to 5 when priority is unparseable', () => {
+    const tpl = build([{ id: 'x', priority: 'banana', when: 'true', text: 't' }]);
+    expect(tpl).toContain("'priority': 5");
+  });
+
   it('handles empty rules array without error', () => {
     const tpl = build([]);
     expect(tpl).toMatch(/\{% set tips = \[\] %\}\s*\n\{\{/);

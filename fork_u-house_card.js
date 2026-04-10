@@ -1123,7 +1123,7 @@ class ForkUHouseCard extends HTMLElement {
             const id = (rule.id || '').replace(/'/g, "\\'");
             const icon = (rule.icon || 'mdi:information').replace(/'/g, "\\'");
             const level = (rule.level || 'info').replace(/'/g, "\\'");
-            const priority = parseInt(rule.priority ?? 5);
+            const priority = parseInt(rule.priority ?? 5) || 5;
             const text = rule.text || '';
             const when = rule.when || 'false';
 

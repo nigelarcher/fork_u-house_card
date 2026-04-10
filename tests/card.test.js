@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CARD_PATH = resolve(__dirname, '..', 'fork_u-house_card.js');
 const HACS_PATH = resolve(__dirname, '..', 'hacs.json');
+const PKG_PATH = resolve(__dirname, '..', 'package.json');
 
 beforeAll(async () => {
   // The card is a plain script (not a module) that calls customElements.define
@@ -59,12 +60,21 @@ describe('setConfig', () => {
 describe('hacs.json', () => {
   const hacs = JSON.parse(readFileSync(HACS_PATH, 'utf8'));
 
-  it('has a semver version field', () => {
-    expect(hacs.version).toBeTypeOf('string');
-    expect(hacs.version).toMatch(/^\d+\.\d+\.\d+$/);
-  });
-
   it('declares the card filename that actually exists', () => {
     expect(hacs.filename).toBe('fork_u-house_card.js');
+  });
+
+  // HACS rejects unknown keys, so version must NOT live here.
+  it('does not contain a version field (HACS forbids extra keys)', () => {
+    expect(hacs.version).toBeUndefined();
+  });
+});
+
+describe('package.json (release source of truth)', () => {
+  const pkg = JSON.parse(readFileSync(PKG_PATH, 'utf8'));
+
+  it('has a semver version field', () => {
+    expect(pkg.version).toBeTypeOf('string');
+    expect(pkg.version).toMatch(/^\d+\.\d+\.\d+$/);
   });
 });

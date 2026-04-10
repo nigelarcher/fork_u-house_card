@@ -32,16 +32,16 @@ jobs:
           # do NOT trigger further workflow runs — which is what we want.
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read version from hacs.json
+      - name: Read version from package.json
         id: version
         run: |
-          VERSION=$(jq -r .version hacs.json)
+          VERSION=$(jq -r .version package.json)
           if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
-            echo "::error::hacs.json has no 'version' field"
+            echo "::error::package.json has no 'version' field"
             exit 1
           fi
           echo "current=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Current version in hacs.json: $VERSION"
+          echo "Current version in package.json: $VERSION"
 
       - name: Determine release version
         id: release
@@ -92,19 +92,19 @@ jobs:
             echo "SKIP=true" >> "$GITHUB_ENV"
           fi
 
-      - name: Bump hacs.json and commit (main only, when auto-bumping)
+      - name: Bump package.json and commit (main only, when auto-bumping)
         if: env.SKIP != 'true' && steps.release.outputs.bump == 'true'
         env:
           NEW_VERSION: ${{ steps.release.outputs.version }}
           TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -e
-          jq --arg v "$NEW_VERSION" '.version = $v' hacs.json > hacs.json.tmp
-          mv hacs.json.tmp hacs.json
+          jq --arg v "$NEW_VERSION" '.version = $v' package.json > package.json.tmp
+          mv package.json.tmp package.json
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add hacs.json
+          git add package.json
           git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
           git tag "$TAG"
           git push origin HEAD:main

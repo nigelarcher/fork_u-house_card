@@ -1196,8 +1196,15 @@ class ForkUHouseCard extends HTMLElement {
         this._hass.connection.subscribeMessage(
             (msg) => {
                 try {
-                    const raw = (msg.result || '').trim();
-                    this._activeTips = raw ? JSON.parse(raw) : [];
+                    const raw = msg.result;
+                    if (Array.isArray(raw)) {
+                        this._activeTips = raw;
+                    } else if (typeof raw === 'string') {
+                        const trimmed = raw.trim();
+                        this._activeTips = trimmed ? JSON.parse(trimmed) : [];
+                    } else {
+                        this._activeTips = [];
+                    }
                     this._tipsErrorCount = 0;
                 } catch (e) {
                     this._tipsErrorCount = (this._tipsErrorCount || 0) + 1;

@@ -24,6 +24,385 @@ wind_direction_entity: sensor.home_wind_direction
 # Default: [18, 24, 30, 35]
 # temp_thresholds: [16, 22, 30, 38]
 
+# ---- Smart Tips ----
+# Replaces the static AI footer with contextual, actionable tips.
+# Each rule uses Jinja2 templates (same syntax as HA automations).
+# All rules are batched into ONE websocket subscription — HA does the work.
+#
+# Options:
+#   display:           "rotating" (default), "single", or "stacked"
+#   rotation_seconds:  seconds between tips in rotating mode (default: 8)
+#   hide_when_empty:   hide footer when no tips active (default: true)
+#   idle_message:      string to show when no tips active (overrides hide_when_empty)
+#
+# Each rule:
+#   id:        unique identifier
+#   icon:      mdi:icon-name or emoji
+#   text:      message (can include {{...}} for inline values)
+#   level:     info, warn, or danger (drives footer colour)
+#   priority:  number — higher wins when multiple tips fire
+#   when:      Jinja2 template returning true/false
+tips:
+  display: rotating
+  rotation_seconds: 8
+  hide_when_empty: true
+  idle_message: "😎 All clear — great time for a walk or airing out the house"
+
+  rules:
+    - id: bin_night
+      icon: "mdi:trash-can"
+      text: "Bin night — put the bins out before bed"
+      level: info
+      priority: 5
+      when: >-
+        {{ now().hour >= 17 and now().weekday() == 1 }}
+
+    - id: rain_soon
+      icon: "mdi:weather-pouring"
+      level: warn
+      priority: 8
+      text: "Rain expected soon — bring washing in"
+      when: >-
+        {{ (state_attr('weather.forecast_home','forecast') or [])[:3]
+           | selectattr('condition','in',['rainy','pouring'])
+           | list | count > 0 }}
+
+    - id: uv_high
+      icon: "mdi:weather-sunny-alert"
+      level: warn
+      priority: 6
+      text: "UV index {{ states('sensor.home_uv_index') }} — slip slop slap"
+      when: >-
+        {{ states('sensor.home_uv_index') | float(0) > 7
+           and is_state('sun.sun','above_horizon') }}
+
+    - id: storm_warning
+      icon: "mdi:weather-lightning"
+      level: danger
+      priority: 10
+      text: "Storm warning! Lightning detected nearby"
+      when: >-
+        {{ is_state('weather.forecast_home','lightning')
+           or is_state('weather.forecast_home','lightning-rainy') }}
+
+    - id: solar_peak
+      icon: "mdi:solar-power"
+      level: info
+      priority: 4
+      text: "Solar producing {{ (states('sensor.solar_power') | float / 1000) | round(1) }} kW — good time to run dishwasher"
+      when: >-
+        {{ states('sensor.solar_power') | float(0) > 5000 }}
+
+    - id: pool_motion
+      icon: "mdi:pool"
+      level: warn
+      priority: 9
+      text: "Motion in pool area — keep an eye on the kids"
+      when: >-
+        {{ is_state('binary_sensor.pool_external_g4_dome_motion','Detected') }}
+
+    # ---- AI Narrative tips (mirrors the original AI advisor messages) ----
+    # These reproduce the previous static AI advisor as low-priority tips.
+    # Higher-priority rules above will override them when relevant.
+
+    # 1. DANGER / STORM (highest of the AI narratives)
+    - id: ai_storm
+      icon: "⚠️"
+      level: danger
+      priority: 100
+      text: "CRITICAL ALERT: A storm with lightning is active nearby. Strong winds and heavy rain are expected. Please secure loose objects outside and stay indoors for safety."
+      when: >-
+        {{ states('weather.forecast_home') in ['lightning','lightning-rainy','hail'] }}
+
+    # 2. HEALTH: AQI bad
+    - id: ai_aqi_bad
+      icon: "😷"
+      level: danger
+      priority: 95
+      text: "SMOG ALERT: Air quality is critical (PM2.5: {{ states('sensor.beresfield_lower_hunter_pm2_5') }}). Prolonged exposure is dangerous. Keep windows closed and run your air purifier."
+      when: >-
+        {{ states('sensor.beresfield_lower_hunter_pm2_5') | float(0) > 100 }}
+
+    # 2b. HEALTH: AQI moderate
+    - id: ai_aqi_mod
+      icon: "😶"
+      level: warn
+      priority: 90
+      text: "AIR QUALITY WARNING: PM2.5 levels are elevated ({{ states('sensor.beresfield_lower_hunter_pm2_5') }}). Sensitive groups should limit outdoor exertion today."
+      when: >-
+        {{ 50 < states('sensor.beresfield_lower_hunter_pm2_5') | float(0) <= 100 }}
+
+    # 3. HEALTH: Pollen
+    - id: ai_pollen
+      icon: "🤧"
+      level: warn
+      priority: 85
+      text: "ALLERGY ALERT: High pollen concentration detected. If you suffer from allergies, keep windows shut and have your medication ready."
+      when: >-
+        {{ states('sensor.home_pollen_types_32_753374151_625700_grass') in ['high','very_high','extreme','red']
+           or states('sensor.home_pollen_types_32_753374151_625700_grass') | float(0) > 50 }}
+
+    # 4. FORECAST: Rain coming in next 3h
+    - id: ai_rain_soon
+      icon: "☂️"
+      level: warn
+      priority: 80
+      text: "PLAN AHEAD: Rain is approaching. Don't leave without an umbrella."
+      when: >-
+        {{ (state_attr('weather.forecast_home','forecast') or [])[:3]
+           | selectattr('condition','in',['rainy','pouring'])
+           | list | count > 0
+           and states('weather.forecast_home') not in ['rainy','pouring','snowy','snowy-rainy'] }}
+
+    # 4b. FORECAST: Snow coming in next 3h
+    - id: ai_snow_soon
+      icon: "❄️"
+      level: warn
+      priority: 80
+      text: "WINTER ALERT: Snow expected soon. Road conditions may deteriorate. Drive with caution."
+      when: >-
+        {{ (state_attr('weather.forecast_home','forecast') or [])[:3]
+           | selectattr('condition','equalto','snowy')
+           | list | count > 0
+           and not is_state('weather.forecast_home','snowy') }}
+
+    # 5. CURRENT: Raining now
+    - id: ai_rain_now
+      icon: "🌧️"
+      level: warn
+      priority: 70
+      text: "CURRENTLY RAINING: Wet surfaces and reduced visibility. Drive safely and wear waterproof gear."
+      when: >-
+        {{ states('weather.forecast_home') in ['rainy','pouring'] }}
+
+    # 5b. CURRENT: Snowing now
+    - id: ai_snow_now
+      icon: "🌨️"
+      level: warn
+      priority: 70
+      text: "SNOWING: Snow is falling right now. Enjoy the view, but dress warmly if you head out."
+      when: >-
+        {{ states('weather.forecast_home') in ['snowy','snowy-rainy'] }}
+
+    # 6. UV high
+    - id: ai_uv
+      icon: "☀️"
+      level: warn
+      priority: 60
+      text: >-
+        HIGH UV RADIATION: The UV Index is {{ states('sensor.home_uv_index') }}.
+        Unprotected skin can burn quickly. Use sunscreen and wear sunglasses if you go out.
+      when: >-
+        {{ states('sensor.home_uv_index') | float(0) > 6 }}
+
+    # 7. TEMPERATURE: cold + windy (wind chill)
+    - id: ai_cold_wind
+      icon: "🥶"
+      level: info
+      priority: 50
+      text: >-
+        WIND CHILL WARNING: It's {{ state_attr('weather.forecast_home','temperature') | default('--') }}°C,
+        but the strong wind makes it feel much colder. Wear windproof layers and a hat.
+      when: >-
+        {{ state_attr('weather.forecast_home','temperature') | float(99) < 10
+           and states('sensor.home_wind_speed') | float(0) > 20 }}
+
+    # 7b. TEMPERATURE: cold
+    - id: ai_cold
+      icon: "🧣"
+      level: info
+      priority: 45
+      text: >-
+        COLD WEATHER: Outside temperature is {{ state_attr('weather.forecast_home','temperature') | default('--') }}°C.
+        It's chilly — make sure to zip up your jacket and keep warm.
+      when: >-
+        {{ state_attr('weather.forecast_home','temperature') | float(99) < 5 }}
+
+    # 7c. TEMPERATURE: hot
+    - id: ai_hot
+      icon: "🔥"
+      level: warn
+      priority: 55
+      text: >-
+        HEAT ADVISORY: Temperatures have reached {{ state_attr('weather.forecast_home','temperature') | default('--') }}°C.
+        Avoid strenuous activity in direct sunlight and drink plenty of water.
+      when: >-
+        {{ state_attr('weather.forecast_home','temperature') | float(0) > 28 }}
+
+    # 8. STABLE / NICE — moved to idle_message in the tips: config above.
+    # Don't use an always-true rule here — it causes HA template evaluation
+    # issues. Use idle_message instead for the "nothing to report" case.
+
+    # 9. GAMING MODE (overrides nice when active)
+    - id: ai_gaming
+      icon: "🎮"
+      level: info
+      priority: 3
+      text: "GAMING MODE: Immersive lighting active. Notifications silenced."
+      when: >-
+        {{ is_state('input_boolean.gaming_mode','on') }}
+
+    # ---- Home-specific tips (tuned to this household's actual sensors) ----
+    # These rules cover indoor air quality, garage state, the shed homebrew
+    # setup, solar hardware temps, the sprinkler network, and the Tesla.
+    # Priority bands: 10 = danger, 6-8 = warn, 1-5 = info. They deliberately
+    # coexist with the AI Narrative block above — overlaps are OK, the
+    # highest-priority firing rule wins.
+
+    # Indoor CO2 danger (> 1500 ppm = uncomfortable, think fresh)
+    - id: co2_danger
+      level: danger
+      priority: 10
+      icon: mdi:molecule-co2
+      when: >-
+        {{ states('sensor.indoor_carbon_dioxide') | int(0) > 1500 }}
+      text: "CO₂ at {{ states('sensor.indoor_carbon_dioxide') }} ppm — open a window"
+
+    # Indoor CO2 high (1000-1500 = drowsy zone)
+    - id: co2_high
+      level: warn
+      priority: 8
+      icon: mdi:window-open-variant
+      when: >-
+        {{ 1000 < states('sensor.indoor_carbon_dioxide') | int(0) <= 1500 }}
+      text: "CO₂ {{ states('sensor.indoor_carbon_dioxide') }} ppm — fresh air would help"
+
+    # Garage left open after dark — higher urgency at night
+    - id: garage_open_night
+      level: danger
+      priority: 9
+      icon: mdi:garage-open-variant
+      when: >-
+        {{ is_state('cover.aeon_labs_garage_door_controller_gen5','open')
+           and is_state('sun.sun','below_horizon') }}
+      text: "Garage door open after dark"
+
+    # Garage open during the day — just a gentle nag
+    - id: garage_open_day
+      level: warn
+      priority: 7
+      icon: mdi:garage-alert-variant
+      when: >-
+        {{ is_state('cover.aeon_labs_garage_door_controller_gen5','open')
+           and is_state('sun.sun','above_horizon') }}
+      text: "Garage is open"
+
+    # Outdoor AQI poor (complementary to ai_aqi_mod which uses Beresfield PM2.5)
+    - id: aqi_poor
+      level: warn
+      priority: 7
+      icon: mdi:weather-hazy
+      when: >-
+        {{ states('sensor.home_aqi_au_aqi') | int(0) > 100 }}
+      text: "Air quality poor (AQI {{ states('sensor.home_aqi_au_aqi') }})"
+
+    # PM2.5 elevated (WHO 24-hour guideline is 15 μg/m³, 25 = caution)
+    - id: pm25_elevated
+      level: warn
+      priority: 6
+      icon: mdi:smog
+      when: >-
+        {{ states('sensor.home_pm2_5') | float(0) > 25 }}
+      text: "PM2.5 elevated at {{ states('sensor.home_pm2_5') | round(0) }} μg/m³"
+
+    # Fermenter running hot — any vessel above 24°C
+    - id: fermenter_hot
+      level: warn
+      priority: 7
+      icon: mdi:thermometer-alert
+      when: >-
+        {{ states('sensor.rapt_pill_ff46_temperature') | float(0) > 24
+           or states('sensor.fermenter_temp_1_temperature') | float(0) > 24
+           or states('sensor.hydro_pill_alpha_temperature') | float(0) > 24 }}
+      text: "Fermenter running hot — check the brew"
+
+    # Fermenter running cold (yeast stall risk). float(99) default prevents
+    # firing when sensors are offline (they'd all read "unknown" = 99).
+    - id: fermenter_cold
+      level: warn
+      priority: 7
+      icon: mdi:snowflake-alert
+      when: >-
+        {{ states('sensor.rapt_pill_ff46_temperature') | float(99) < 16
+           or states('sensor.fermenter_temp_1_temperature') | float(99) < 16
+           or states('sensor.hydro_pill_alpha_temperature') | float(99) < 16 }}
+      text: "Fermenter running cold — yeast will stall"
+
+    # Solar battery hot — above 45°C starts degrading lifetime
+    - id: battery_hot
+      level: warn
+      priority: 6
+      icon: mdi:battery-alert
+      when: >-
+        {{ states('sensor.solplanet_battery_battery_temperature') | float(0) > 45 }}
+      text: "Solar battery at {{ states('sensor.solplanet_battery_battery_temperature') }}°C — hot"
+
+    # Solar inverter hot
+    - id: inverter_hot
+      level: warn
+      priority: 6
+      icon: mdi:current-dc
+      when: >-
+        {{ states('sensor.solplanet_inverter_temperature') | float(0) > 60 }}
+      text: "Inverter at {{ states('sensor.solplanet_inverter_temperature') }}°C"
+
+    # Indoor humidity sticky (> 70%)
+    - id: indoor_humid
+      level: info
+      priority: 5
+      icon: mdi:water-percent
+      when: >-
+        {{ states('sensor.indoor_humidity') | int(0) > 70 }}
+      text: "Indoor humidity {{ states('sensor.indoor_humidity') }}% — a bit sticky"
+
+    # Any sprinkler zone currently watering (binary_sensor = water flowing)
+    - id: sprinklers_running
+      level: info
+      priority: 4
+      icon: mdi:sprinkler-variant
+      when: >-
+        {{ is_state('binary_sensor.back_boundary_turf_watering','on')
+           or is_state('binary_sensor.back_turf_near_wall_watering','on')
+           or is_state('binary_sensor.back_turf_near_house_watering','on')
+           or is_state('binary_sensor.front_garden_watering','on')
+           or is_state('binary_sensor.lhs_front_centre_watering','on')
+           or is_state('binary_sensor.lhs_front_near_house_watering','on')
+           or is_state('binary_sensor.lhs_front_turf_watering','on')
+           or is_state('binary_sensor.lhs_back_turf_and_garden_watering','on')
+           or is_state('binary_sensor.rhs_front_turf_watering','on')
+           or is_state('binary_sensor.rhs_back_turf_watering','on') }}
+      text: "Sprinklers active"
+
+    # House holding heat (indoor significantly warmer than outdoor)
+    - id: house_holding_heat
+      level: info
+      priority: 3
+      icon: mdi:home-thermometer
+      when: >-
+        {{ (states('sensor.indoor_temperature') | float(0))
+           - (states('sensor.home_temperature') | float(0)) > 8 }}
+      text: "House {{ ((states('sensor.indoor_temperature') | float(0)) - (states('sensor.home_temperature') | float(0))) | round(1) }}°C warmer than outside"
+
+    # House losing heat (outdoor significantly warmer — open up?)
+    - id: house_losing_heat
+      level: info
+      priority: 3
+      icon: mdi:snowflake-melt
+      when: >-
+        {{ (states('sensor.home_temperature') | float(0))
+           - (states('sensor.indoor_temperature') | float(0)) > 8 }}
+      text: "Outside {{ ((states('sensor.home_temperature') | float(0)) - (states('sensor.indoor_temperature') | float(0))) | round(1) }}°C warmer than inside — open up?"
+
+    # Wind chill noticeable (apparent temperature 3°C+ colder than actual)
+    - id: apparent_much_colder
+      level: info
+      priority: 2
+      icon: mdi:weather-windy
+      when: >-
+        {{ (states('sensor.home_temperature') | float(0))
+           - (states('sensor.home_apparent_temperature') | float(0)) > 3 }}
+      text: "Feels {{ ((states('sensor.home_temperature') | float(0)) - (states('sensor.home_apparent_temperature') | float(0))) | round(1) }}°C colder than it is — wind chill"
+
 # Birthdays (MM-DD format). During xmas (Dec 1-26), the advent image takes
 # priority — Dec 23's advent image already includes girl_bday in the scene.
 birthdays:
@@ -55,7 +434,7 @@ rooms:
   # Basic temperature sensor (default unit: °, uses temp colour thresholds)
   - name: Lounge
     entity: sensor.lounge_temp
-    x: 40
+    "x": 40
     "y": 45
     weight: 1
 
@@ -63,7 +442,7 @@ rooms:
   - name: Humidity
     entity: sensor.lounge_humidity
     unit: "%"
-    x: 60
+    "x": 60
     "y": 45
     weight: 0  # excluded from median temp
     thresholds: [30, 50, 70]
@@ -73,7 +452,7 @@ rooms:
   # Fermenter with tight brewing range
   - name: Fermenter 1
     entity: sensor.fermenter_temp_1_temperature
-    x: 50
+    "x": 50
     "y": 50
     weight: 1
     thresholds: [16, 20, 24]
@@ -84,7 +463,7 @@ rooms:
   - name: Solar
     entity: sensor.solar_power
     unit: "W"
-    x: 70
+    "x": 70
     "y": 50
     weight: 0
 
@@ -116,7 +495,7 @@ rooms:
     entity: sensor.solar_power
     unit: "W"
     show_when: { gt: 0 }
-    x: 70
+    "x": 70
     "y": 50
     weight: 0
 
@@ -125,7 +504,7 @@ rooms:
   - name: Pool
     entity: sensor.pool_temperature
     show_when: { range: [20, 35] }
-    x: 80
+    "x": 80
     "y": 70
     weight: 0
 
@@ -173,7 +552,7 @@ alerts:
     icon: "mdi:motion-sensor"
     label: "Motion"
     color: "#F87171"
-    x: 80
+    "x": 80
     "y": 20
 
   # Front door camera (using mdi icon)
@@ -181,20 +560,20 @@ alerts:
     icon: "mdi:door"
     label: "Door"
     color: "#FB923C"
-    x: 30
+    "x": 30
     "y": 35
 
   # Pool pump running — no background, just a floating icon
   - entity: switch.pool_pump
     icon: "🏊"
-    x: 75
+    "x": 75
     "y": 70
 
   # Sprinklers — mdi icon, no background, custom icon colour
   - entity: switch.garden_sprinklers
     icon: "mdi:sprinkler"
     icon_color: "#38BDF8"
-    x: 85
+    "x": 85
     "y": 60
 
   # EV charging — mdi icon, no background, coloured icon
@@ -202,7 +581,7 @@ alerts:
     show_when: ["charging", "no_power"]
     icon: "mdi:lightning-bolt"
     icon_color: "#FBBF24"
-    x: 35
+    "x": 35
     "y": 45
 
   # Garage open (mdi icon with colour + label)
@@ -211,7 +590,7 @@ alerts:
     icon: "mdi:garage-open"
     label: "Garage"
     color: "#FBBF24"
-    x: 45
+    "x": 45
     "y": 80
 
   # Alarm triggered — show for multiple states (using mdi icon)
@@ -220,7 +599,7 @@ alerts:
     icon: "mdi:alarm-light"
     label: "ALARM"
     color: "#DC2626"
-    x: 50
+    "x": 50
     "y": 10
 
 # ---- Sprinkler Zones ----
@@ -234,19 +613,19 @@ alerts:
 sprinklers:
   - entity: switch.sprinkler_front_lawn
     label: "Front"
-    x: 30
+    "x": 30
     "y": 75
 
   - entity: switch.sprinkler_back_garden
     label: "Back"
     color: "#34D399"
     size: large
-    x: 70
+    "x": 70
     "y": 30
 
   - entity: switch.sprinkler_side_strip
     size: small
-    x: 10
+    "x": 10
     "y": 50
 
 # ---- Bin Night ----
@@ -271,7 +650,7 @@ bins:
     cadence: weekly
     color: "#DC2626"
     label: "General"
-    x: 12
+    "x": 12
     "y": 88
 
   # Yellow lid — recycling (fortnightly)
@@ -280,7 +659,7 @@ bins:
     anchor_date: "2026-04-07"   # a known recycling collection date
     color: "#FBBF24"
     label: "Recycle"
-    x: 18
+    "x": 18
     "y": 88
 
   # Green lid — green waste (fortnightly, alternates with recycling)
@@ -289,7 +668,7 @@ bins:
     anchor_date: "2026-04-14"   # the OTHER week from recycling
     color: "#10B981"
     label: "Green"
-    x: 24
+    "x": 24
     "y": 88
 
 # ---- Energy Flow ----
@@ -347,7 +726,7 @@ bins:
 #     entity: sensor.home_consumption
 #     icon: "mdi:home"
 #     color: "#A78BFA"
-#     x: 48
+#     "x": 48
 #     "y": 40
 #   node_positions:
 #     solar: { x: 57, "y": 12 }
@@ -362,7 +741,7 @@ bins:
 #       direction: consumer
 #       max: 5
 #       size: 30
-#       x: 32
+#       "x": 32
 #       "y": 58
 #     - name: EV
 #       entity: sensor.ev_charger_power
@@ -371,7 +750,7 @@ bins:
 #       direction: consumer
 #       max: 7
 #       size: 30
-#       x: 18
+#       "x": 18
 #       "y": 72
 
 # --- Example 2: Full AUTO (sources + consumers from HA Energy Dashboard) ---
@@ -379,7 +758,7 @@ bins:
 #   auto: true
 #   home:
 #     entity: sensor.home_consumption
-#     x: 48
+#     "x": 48
 #     "y": 40
 #   node_positions:
 #     solar: { x: 57, "y": 12 }
@@ -397,7 +776,7 @@ energy:
     name: "Home"
     color: "#A78BFA"
     unit: "kW"
-    x: 48
+    "x": 48
     "y": 40
 
   nodes:
@@ -408,7 +787,7 @@ energy:
       color: "#FBBF24"
       direction: source
       max: 10
-      x: 57
+      "x": 57
       "y": 12
 
     - name: Battery
@@ -418,7 +797,7 @@ energy:
       direction: source
       max: 5
       battery_entity: sensor.battery_soc  # SOC sensor — auto-shows fill level icon + percentage
-      x: 15
+      "x": 15
       "y": 30
 
     - name: Grid
@@ -427,7 +806,7 @@ energy:
       color: "#60A5FA"
       direction: source
       max: 8
-      x: 88
+      "x": 88
       "y": 55
 
     # --- Consumers ---
@@ -438,7 +817,7 @@ energy:
       direction: consumer
       max: 5
       size: 30
-      x: 32
+      "x": 32
       "y": 58
 
     - name: EV
@@ -448,7 +827,7 @@ energy:
       direction: consumer
       max: 7
       size: 30
-      x: 18
+      "x": 18
       "y": 72
 
     - name: Pool
@@ -458,6 +837,6 @@ energy:
       direction: consumer
       max: 1.5
       size: 30
-      x: 72
+      "x": 72
       "y": 70
 

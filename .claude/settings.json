@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm test:*)",
+      "Bash(npx vitest:*)",
+      "WebFetch(domain:developers.google.com)",
+      "WebFetch(domain:docs.github.com)"
+    ]
+  }
+}

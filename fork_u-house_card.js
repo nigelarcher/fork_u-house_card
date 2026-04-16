@@ -1169,8 +1169,8 @@ class ForkUHouseCard extends HTMLElement {
     _setupTips() {
         const tipsCfg = this._config.tips;
         if (!tipsCfg || !tipsCfg.rules || tipsCfg.rules.length === 0) {
-            // No tips config — clean up any existing subscription and hide footer
-            if (this._tipsUnsub) { try { this._tipsUnsub(); } catch (e) {} this._tipsUnsub = null; }
+            // No tips config — clean up and hide footer
+            this._cleanupTipsPoll();
             const footer = this.shadowRoot.querySelector('.footer');
             const statusEl = this.shadowRoot.querySelector('.footer-content');
             if (statusEl) statusEl.innerHTML = '';
@@ -1178,23 +1178,34 @@ class ForkUHouseCard extends HTMLElement {
             return;
         }
 
-        // Build template once and subscribe — only re-subscribe if the template changes.
-        // Track in-flight subscriptions with _tipsPending so rapid hass pushes during the
-        // subscribe() round-trip don't create orphaned duplicate subscriptions.
+        // Build the template once. Only restart the poll if rules changed.
         const newTemplate = this._buildTipsTemplate(tipsCfg.rules);
-        if (newTemplate === this._tipsTemplateCache && (this._tipsUnsub || this._tipsPending)) return;
-
-        // Clean up old subscription if rules changed
-        if (this._tipsUnsub) { try { this._tipsUnsub(); } catch (e) {} this._tipsUnsub = null; }
+        if (newTemplate === this._tipsTemplateCache && this._tipsPollTimer) return;
         this._tipsTemplateCache = newTemplate;
 
-        // Subscribe to render_template
+        // Start polling: subscribe → grab first result → unsubscribe → wait → repeat.
+        // This avoids the persistent subscription model where HA pushes on every
+        // entity state change, which floods weak clients (fridge display etc.)
+        // with hundreds of callbacks per minute.
+        this._cleanupTipsPoll();
+        const pollInterval = (tipsCfg.poll_seconds ?? 30) * 1000;
+        this._pollTipsOnce(newTemplate);
+        this._tipsPollTimer = setInterval(() => this._pollTipsOnce(newTemplate), pollInterval);
+    }
+
+    _cleanupTipsPoll() {
+        if (this._tipsPollTimer) { clearInterval(this._tipsPollTimer); this._tipsPollTimer = null; }
+        if (this._tipsUnsub) { try { this._tipsUnsub(); } catch (_) {} this._tipsUnsub = null; }
+    }
+
+    _pollTipsOnce(template) {
         if (!this._hass?.connection?.subscribeMessage) return;
 
-        this._tipsPending = true;
-        this._tipsErrorCount = 0;
         this._hass.connection.subscribeMessage(
             (msg) => {
+                // Got result — immediately unsubscribe to stop the firehose
+                if (this._tipsUnsub) { try { this._tipsUnsub(); } catch (_) {} this._tipsUnsub = null; }
+
                 let newTips;
                 try {
                     const raw = msg.result;
@@ -1206,61 +1217,25 @@ class ForkUHouseCard extends HTMLElement {
                     } else {
                         newTips = [];
                     }
-                    this._tipsErrorCount = 0;
                 } catch (e) {
-                    this._tipsErrorCount = (this._tipsErrorCount || 0) + 1;
-                    if (this._tipsErrorCount <= 3) {
-                        console.warn('[fork-u-house] Tips parse failed:', e.message);
-                    } else if (this._tipsErrorCount === 4) {
-                        console.warn('[fork-u-house] Tips errors suppressed — check your tips rules config');
-                        if (this._tipsUnsub) { try { this._tipsUnsub(); } catch (_) {} this._tipsUnsub = null; }
-                    }
+                    console.warn('[fork-u-house] Tips parse failed:', e.message);
                     newTips = [];
                 }
-                // Throttle: at most one render per 10 seconds. The subscription
-                // fires on every entity state change but tips don't need
-                // sub-second reactivity.
-                const now = Date.now();
-                this._tipsPendingResult = newTips;
-                if (!this._tipsThrottleTimer) {
-                    const apply = () => {
-                        this._tipsThrottleTimer = null;
-                        const pending = this._tipsPendingResult;
-                        if (!pending) return;
-                        const key = JSON.stringify(pending);
-                        if (key !== this._tipsKey) {
-                            this._tipsKey = key;
-                            this._activeTips = pending;
-                            this._renderTips();
-                            this._setupTipRotation();
-                        }
-                    };
-                    // Fire immediately on first result, then throttle
-                    if (!this._tipsLastRender || now - this._tipsLastRender >= 10000) {
-                        this._tipsLastRender = now;
-                        apply();
-                    } else {
-                        this._tipsThrottleTimer = setTimeout(() => {
-                            this._tipsLastRender = Date.now();
-                            apply();
-                        }, 10000 - (now - this._tipsLastRender));
-                    }
+
+                // Only re-render if tips actually changed
+                const key = JSON.stringify(newTips);
+                if (key !== this._tipsKey) {
+                    this._tipsKey = key;
+                    this._activeTips = newTips;
+                    this._renderTips();
+                    this._setupTipRotation();
                 }
             },
-            { type: 'render_template', template: newTemplate, timeout: 9 }
+            { type: 'render_template', template, timeout: 9 }
         ).then(unsub => {
-            this._tipsPending = false;
-            // If the template changed while we were subscribing, this subscription is
-            // stale — abort it immediately so we don't leak it.
-            if (this._tipsTemplateCache !== newTemplate) {
-                try { unsub(); } catch (e) {}
-                return;
-            }
             this._tipsUnsub = unsub;
         }).catch(err => {
-            this._tipsPending = false;
-            console.warn('[fork-u-house] Tips subscription failed:', err);
-            // Clear the loading text so it doesn't persist on failure
+            console.warn('[fork-u-house] Tips poll failed:', err.message || err);
             this._activeTips = [];
             this._renderTips();
         });

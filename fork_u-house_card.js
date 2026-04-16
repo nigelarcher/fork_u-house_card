@@ -1128,7 +1128,9 @@ class ForkUHouseCard extends HTMLElement {
             // Strip {{ }} wrappers if present — users write Jinja with {{ }}
             // in YAML (it's the HA convention), but we embed into {% if %} blocks
             // where the delimiters are invalid.
-            let when = (rule.when || 'false').trim();
+            // Coerce to string first — HA's YAML parser can turn "true"/"false"
+            // into boolean values.
+            let when = String(rule.when ?? 'false').trim();
             if (when.startsWith('{{') && when.endsWith('}}')) {
                 when = when.slice(2, -2).trim();
             }
@@ -1190,13 +1192,22 @@ class ForkUHouseCard extends HTMLElement {
         if (!this._hass?.connection?.subscribeMessage) return;
 
         this._tipsPending = true;
+        this._tipsErrorCount = 0;
         this._hass.connection.subscribeMessage(
             (msg) => {
                 try {
                     const raw = (msg.result || '').trim();
                     this._activeTips = raw ? JSON.parse(raw) : [];
+                    this._tipsErrorCount = 0;
                 } catch (e) {
-                    console.warn('[fork-u-house] Tips JSON parse failed:', e, msg.result);
+                    this._tipsErrorCount = (this._tipsErrorCount || 0) + 1;
+                    if (this._tipsErrorCount <= 3) {
+                        console.warn('[fork-u-house] Tips parse failed:', e.message);
+                    } else if (this._tipsErrorCount === 4) {
+                        console.warn('[fork-u-house] Tips errors suppressed — check your tips rules config');
+                        // Kill the subscription to stop flooding HA with broken template renders
+                        if (this._tipsUnsub) { try { this._tipsUnsub(); } catch (_) {} this._tipsUnsub = null; }
+                    }
                     this._activeTips = [];
                 }
                 this._renderTips();

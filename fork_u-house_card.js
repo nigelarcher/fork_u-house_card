@@ -1193,7 +1193,8 @@ class ForkUHouseCard extends HTMLElement {
         this._hass.connection.subscribeMessage(
             (msg) => {
                 try {
-                    this._activeTips = JSON.parse(msg.result || '[]');
+                    const raw = (msg.result || '').trim();
+                    this._activeTips = raw ? JSON.parse(raw) : [];
                 } catch (e) {
                     console.warn('[fork-u-house] Tips JSON parse failed:', e, msg.result);
                     this._activeTips = [];

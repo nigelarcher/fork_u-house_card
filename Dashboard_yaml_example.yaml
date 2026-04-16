@@ -60,11 +60,9 @@ tips:
       icon: "mdi:weather-pouring"
       level: warn
       priority: 8
-      text: >-
-        Rain expected at {{ state_attr('weather.forecast_home','forecast')[0].datetime[11:16] }}
-        — bring washing in
+      text: "Rain expected soon — bring washing in"
       when: >-
-        {{ state_attr('weather.forecast_home','forecast')[:3]
+        {{ (state_attr('weather.forecast_home','forecast') or [])[:3]
            | selectattr('condition','in',['rainy','pouring'])
            | list | count > 0 }}
 
@@ -148,17 +146,9 @@ tips:
       icon: "☂️"
       level: warn
       priority: 80
-      text: >-
-        PLAN AHEAD: Rain is approaching and expected around
-        {{ (state_attr('weather.forecast_home','forecast')[:3]
-            | selectattr('condition','in',['rainy','pouring'])
-            | list | first).datetime[11:16] }}
-        (approx. {{ (state_attr('weather.forecast_home','forecast')[:3]
-            | selectattr('condition','in',['rainy','pouring'])
-            | list | first).precipitation | default('~') }} mm).
-        Don't leave without an umbrella.
+      text: "PLAN AHEAD: Rain is approaching. Don't leave without an umbrella."
       when: >-
-        {{ state_attr('weather.forecast_home','forecast')[:3]
+        {{ (state_attr('weather.forecast_home','forecast') or [])[:3]
            | selectattr('condition','in',['rainy','pouring'])
            | list | count > 0
            and states('weather.forecast_home') not in ['rainy','pouring','snowy','snowy-rainy'] }}
@@ -168,14 +158,9 @@ tips:
       icon: "❄️"
       level: warn
       priority: 80
-      text: >-
-        WINTER ALERT: Snowfall is expected around
-        {{ (state_attr('weather.forecast_home','forecast')[:3]
-            | selectattr('condition','equalto','snowy')
-            | list | first).datetime[11:16] }}.
-        Road conditions may deteriorate rapidly. Drive with caution.
+      text: "WINTER ALERT: Snow expected soon. Road conditions may deteriorate. Drive with caution."
       when: >-
-        {{ state_attr('weather.forecast_home','forecast')[:3]
+        {{ (state_attr('weather.forecast_home','forecast') or [])[:3]
            | selectattr('condition','equalto','snowy')
            | list | count > 0
            and not is_state('weather.forecast_home','snowy') }}
@@ -185,9 +170,7 @@ tips:
       icon: "🌧️"
       level: warn
       priority: 70
-      text: >-
-        CURRENTLY RAINING: Intensity is {{ state_attr('weather.forecast_home','precipitation') | default('~') }} mm/h.
-        Wet surfaces and reduced visibility. Drive safely and wear waterproof gear.
+      text: "CURRENTLY RAINING: Wet surfaces and reduced visibility. Drive safely and wear waterproof gear."
       when: >-
         {{ states('weather.forecast_home') in ['rainy','pouring'] }}
 

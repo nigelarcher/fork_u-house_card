@@ -200,7 +200,7 @@ tips:
       level: info
       priority: 50
       text: >-
-        WIND CHILL WARNING: It's {{ state_attr('weather.forecast_home','temperature') }}°C,
+        WIND CHILL WARNING: It's {{ state_attr('weather.forecast_home','temperature') | default('--') }}°C,
         but the strong wind makes it feel much colder. Wear windproof layers and a hat.
       when: >-
         {{ state_attr('weather.forecast_home','temperature') | float(99) < 10
@@ -212,7 +212,7 @@ tips:
       level: info
       priority: 45
       text: >-
-        COLD WEATHER: Outside temperature is {{ state_attr('weather.forecast_home','temperature') }}°C.
+        COLD WEATHER: Outside temperature is {{ state_attr('weather.forecast_home','temperature') | default('--') }}°C.
         It's chilly — make sure to zip up your jacket and keep warm.
       when: >-
         {{ state_attr('weather.forecast_home','temperature') | float(99) < 5 }}
@@ -223,7 +223,7 @@ tips:
       level: warn
       priority: 55
       text: >-
-        HEAT ADVISORY: Temperatures have reached {{ state_attr('weather.forecast_home','temperature') }}°C.
+        HEAT ADVISORY: Temperatures have reached {{ state_attr('weather.forecast_home','temperature') | default('--') }}°C.
         Avoid strenuous activity in direct sunlight and drink plenty of water.
       when: >-
         {{ state_attr('weather.forecast_home','temperature') | float(0) > 28 }}
@@ -233,9 +233,7 @@ tips:
       icon: "😎"
       level: info
       priority: 1
-      text: >-
-        COMFORTABLE CONDITIONS: Weather is stable at {{ state_attr('weather.forecast_home','temperature') }}°C
-        with moderate wind. Great time for a walk or airing out the house.
+      text: "All clear — great time for a walk or airing out the house"
       when: "true"
 
     # 9. GAMING MODE (overrides nice when active)

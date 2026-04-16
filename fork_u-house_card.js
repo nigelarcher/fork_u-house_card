@@ -1125,7 +1125,13 @@ class ForkUHouseCard extends HTMLElement {
             const level = (rule.level || 'info').replace(/'/g, "\\'");
             const priority = parseInt(rule.priority ?? 5) || 5;
             const text = rule.text || '';
-            const when = rule.when || 'false';
+            // Strip {{ }} wrappers if present — users write Jinja with {{ }}
+            // in YAML (it's the HA convention), but we embed into {% if %} blocks
+            // where the delimiters are invalid.
+            let when = (rule.when || 'false').trim();
+            if (when.startsWith('{{') && when.endsWith('}}')) {
+                when = when.slice(2, -2).trim();
+            }
 
             // The text field can contain {{...}} interpolation that must be
             // evaluated by Jinja, not treated as a literal. Split on placeholders
@@ -1208,6 +1214,9 @@ class ForkUHouseCard extends HTMLElement {
         }).catch(err => {
             this._tipsPending = false;
             console.warn('[fork-u-house] Tips subscription failed:', err);
+            // Clear the loading text so it doesn't persist on failure
+            this._activeTips = [];
+            this._renderTips();
         });
     }
 

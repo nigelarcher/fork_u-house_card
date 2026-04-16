@@ -55,9 +55,27 @@ describe('_buildTipsTemplate', () => {
     expect(tpl).toContain("'level': 'it\\'s'");
   });
 
-  it('uses the rule.when expression verbatim', () => {
+  it('uses the rule.when expression verbatim when no {{ }} wrapper', () => {
     const tpl = build([{ id: 'x', when: "states('sensor.temp') | float > 30", text: 'hot' }]);
     expect(tpl).toContain("{% if states('sensor.temp') | float > 30 %}");
+  });
+
+  it('strips {{ }} wrapper from when (HA YAML convention)', () => {
+    const tpl = build([{ id: 'x', when: "{{ now().hour >= 17 }}", text: 't' }]);
+    expect(tpl).toContain("{% if now().hour >= 17 %}");
+    // Must NOT produce the invalid nested form
+    expect(tpl).not.toContain("{% if {{");
+  });
+
+  it('strips {{ }} with extra whitespace', () => {
+    const tpl = build([{ id: 'x', when: "  {{ is_state('sun.sun','below_horizon') }}  ", text: 't' }]);
+    expect(tpl).toContain("{% if is_state('sun.sun','below_horizon') %}");
+  });
+
+  it('does not strip {{ }} from mid-expression (only full wrappers)', () => {
+    // A when like "a {{ b }} c" shouldn't be stripped — that's not a full wrapper
+    const tpl = build([{ id: 'x', when: "a {{ b }} c", text: 't' }]);
+    expect(tpl).toContain("{% if a {{ b }} c %}");
   });
 
   it('coerces non-numeric priority to integer', () => {

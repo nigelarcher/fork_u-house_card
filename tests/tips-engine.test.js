@@ -160,6 +160,34 @@ describe('_setupTips — subscription lifecycle', () => {
     el._hass.connection = undefined;
     expect(() => el._setupTips()).not.toThrow();
   });
+
+  it('clears loading text and renders empty tips on subscription failure', async () => {
+    const el = mountCard({
+      config: { tips: { rules: [{ id: 'a', when: 'true', text: 'hi' }], hide_when_empty: false } },
+    });
+    el._activeTips = [];
+    el._tipRotationIdx = 0;
+    el._tipsTemplateCache = null;
+    el._tipRotationTimer = null;
+    el._tipsUnsub = null;
+    el._tipsPending = false;
+
+    // Mock subscribeMessage that rejects
+    el._hass.connection = {
+      subscribeMessage: vi.fn(() => Promise.reject(new Error('template error'))),
+    };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    el._setupTips();
+
+    // Wait for the rejection to propagate
+    await vi.waitFor(() => expect(warn).toHaveBeenCalled());
+
+    // Footer should no longer show loading text
+    const footer = el.shadowRoot.querySelector('.footer');
+    expect(footer).not.toBeNull();
+    expect(el._activeTips).toEqual([]);
+    warn.mockRestore();
+  });
 });
 
 // ---------------------------------------------------------------------------

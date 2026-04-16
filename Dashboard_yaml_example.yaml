@@ -46,6 +46,7 @@ tips:
   display: rotating
   rotation_seconds: 8
   hide_when_empty: true
+  idle_message: "😎 All clear — great time for a walk or airing out the house"
 
   rules:
     - id: bin_night
@@ -228,13 +229,9 @@ tips:
       when: >-
         {{ state_attr('weather.forecast_home','temperature') | float(0) > 28 }}
 
-    # 8. STABLE / NICE (lowest priority — only shows when nothing else fires)
-    - id: ai_nice
-      icon: "😎"
-      level: info
-      priority: 1
-      text: "All clear — great time for a walk or airing out the house"
-      when: "true"
+    # 8. STABLE / NICE — moved to idle_message in the tips: config above.
+    # Don't use an always-true rule here — it causes HA template evaluation
+    # issues. Use idle_message instead for the "nothing to report" case.
 
     # 9. GAMING MODE (overrides nice when active)
     - id: ai_gaming
@@ -358,22 +355,22 @@ tips:
         {{ states('sensor.indoor_humidity') | int(0) > 70 }}
       text: "Indoor humidity {{ states('sensor.indoor_humidity') }}% — a bit sticky"
 
-    # Any automatic sprinkler zone currently running
+    # Any sprinkler zone currently watering (binary_sensor = water flowing)
     - id: sprinklers_running
       level: info
       priority: 4
       icon: mdi:sprinkler-variant
       when: >-
-        {{ is_state('switch.back_boundary_turf_automatic_watering','on')
-           or is_state('switch.back_turf_near_wall_automatic_watering','on')
-           or is_state('switch.back_turf_near_house_automatic_watering','on')
-           or is_state('switch.front_garden_automatic_watering','on')
-           or is_state('switch.lhs_front_centre_automatic_watering','on')
-           or is_state('switch.lhs_front_near_house_automatic_watering','on')
-           or is_state('switch.lhs_front_turf_automatic_watering','on')
-           or is_state('switch.lhs_back_turf_and_garden_automatic_watering','on')
-           or is_state('switch.rhs_front_turf_automatic_watering','on')
-           or is_state('switch.rhs_back_turf_automatic_watering','on') }}
+        {{ is_state('binary_sensor.back_boundary_turf_watering','on')
+           or is_state('binary_sensor.back_turf_near_wall_watering','on')
+           or is_state('binary_sensor.back_turf_near_house_watering','on')
+           or is_state('binary_sensor.front_garden_watering','on')
+           or is_state('binary_sensor.lhs_front_centre_watering','on')
+           or is_state('binary_sensor.lhs_front_near_house_watering','on')
+           or is_state('binary_sensor.lhs_front_turf_watering','on')
+           or is_state('binary_sensor.lhs_back_turf_and_garden_watering','on')
+           or is_state('binary_sensor.rhs_front_turf_watering','on')
+           or is_state('binary_sensor.rhs_back_turf_watering','on') }}
       text: "Sprinklers active"
 
     # House holding heat (indoor significantly warmer than outdoor)
@@ -384,10 +381,7 @@ tips:
       when: >-
         {{ (states('sensor.indoor_temperature') | float(0))
            - (states('sensor.home_temperature') | float(0)) > 8 }}
-      text: >-
-        House {{ ((states('sensor.indoor_temperature') | float(0))
-                  - (states('sensor.home_temperature') | float(0))) | round(1) }}°C
-        warmer than outside
+      text: "House {{ ((states('sensor.indoor_temperature') | float(0)) - (states('sensor.home_temperature') | float(0))) | round(1) }}°C warmer than outside"
 
     # House losing heat (outdoor significantly warmer — open up?)
     - id: house_losing_heat
@@ -397,10 +391,7 @@ tips:
       when: >-
         {{ (states('sensor.home_temperature') | float(0))
            - (states('sensor.indoor_temperature') | float(0)) > 8 }}
-      text: >-
-        Outside {{ ((states('sensor.home_temperature') | float(0))
-                    - (states('sensor.indoor_temperature') | float(0))) | round(1) }}°C
-        warmer than inside — open up?
+      text: "Outside {{ ((states('sensor.home_temperature') | float(0)) - (states('sensor.indoor_temperature') | float(0))) | round(1) }}°C warmer than inside — open up?"
 
     # Wind chill noticeable (apparent temperature 3°C+ colder than actual)
     - id: apparent_much_colder
@@ -410,10 +401,7 @@ tips:
       when: >-
         {{ (states('sensor.home_temperature') | float(0))
            - (states('sensor.home_apparent_temperature') | float(0)) > 3 }}
-      text: >-
-        Feels {{ ((states('sensor.home_temperature') | float(0))
-                  - (states('sensor.home_apparent_temperature') | float(0))) | round(1) }}°C
-        colder than it is — wind chill
+      text: "Feels {{ ((states('sensor.home_temperature') | float(0)) - (states('sensor.home_apparent_temperature') | float(0))) | round(1) }}°C colder than it is — wind chill"
 
 # Birthdays (MM-DD format). During xmas (Dec 1-26), the advent image takes
 # priority — Dec 23's advent image already includes girl_bday in the scene.

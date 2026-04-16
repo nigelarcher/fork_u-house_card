@@ -1195,15 +1195,16 @@ class ForkUHouseCard extends HTMLElement {
         this._tipsErrorCount = 0;
         this._hass.connection.subscribeMessage(
             (msg) => {
+                let newTips;
                 try {
                     const raw = msg.result;
                     if (Array.isArray(raw)) {
-                        this._activeTips = raw;
+                        newTips = raw;
                     } else if (typeof raw === 'string') {
                         const trimmed = raw.trim();
-                        this._activeTips = trimmed ? JSON.parse(trimmed) : [];
+                        newTips = trimmed ? JSON.parse(trimmed) : [];
                     } else {
-                        this._activeTips = [];
+                        newTips = [];
                     }
                     this._tipsErrorCount = 0;
                 } catch (e) {
@@ -1212,13 +1213,39 @@ class ForkUHouseCard extends HTMLElement {
                         console.warn('[fork-u-house] Tips parse failed:', e.message);
                     } else if (this._tipsErrorCount === 4) {
                         console.warn('[fork-u-house] Tips errors suppressed — check your tips rules config');
-                        // Kill the subscription to stop flooding HA with broken template renders
                         if (this._tipsUnsub) { try { this._tipsUnsub(); } catch (_) {} this._tipsUnsub = null; }
                     }
-                    this._activeTips = [];
+                    newTips = [];
                 }
-                this._renderTips();
-                this._setupTipRotation();
+                // Throttle: at most one render per 10 seconds. The subscription
+                // fires on every entity state change but tips don't need
+                // sub-second reactivity.
+                const now = Date.now();
+                this._tipsPendingResult = newTips;
+                if (!this._tipsThrottleTimer) {
+                    const apply = () => {
+                        this._tipsThrottleTimer = null;
+                        const pending = this._tipsPendingResult;
+                        if (!pending) return;
+                        const key = JSON.stringify(pending);
+                        if (key !== this._tipsKey) {
+                            this._tipsKey = key;
+                            this._activeTips = pending;
+                            this._renderTips();
+                            this._setupTipRotation();
+                        }
+                    };
+                    // Fire immediately on first result, then throttle
+                    if (!this._tipsLastRender || now - this._tipsLastRender >= 10000) {
+                        this._tipsLastRender = now;
+                        apply();
+                    } else {
+                        this._tipsThrottleTimer = setTimeout(() => {
+                            this._tipsLastRender = Date.now();
+                            apply();
+                        }, 10000 - (now - this._tipsLastRender));
+                    }
+                }
             },
             { type: 'render_template', template: newTemplate, timeout: 9 }
         ).then(unsub => {

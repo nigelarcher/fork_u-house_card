@@ -5,6 +5,18 @@ layout_options:
 # performance: auto  # "auto" (default) detects slow devices and disables blur
                      # "low" forces low-perf mode (no backdrop blur)
                      # "high" forces full effects even on slow devices
+
+# Per-user performance overrides — useful for low-spec wall tablets/fridge displays
+# that share a dashboard with faster devices. Match by HA user name (case-insensitive)
+# or user id. First matching profile wins. Each flag is independent — set only
+# what you need.
+#
+# performance_profiles:
+#   - users: ["Fridge", "Hallway Tablet"]   # match this._hass.user.name or .id
+#     mode: low                             # apply low-perf CSS + 15fps cap
+#     weather_effects: false                # skip canvas weather animation entirely
+#     energy_flow: false                    # skip energy flow render
+#     update_throttle: 5                    # debounce HA state updates to once / N seconds
 language: pl
 image_path: /local/house-images/
 image: /local/community/fork_u-house_card/images/

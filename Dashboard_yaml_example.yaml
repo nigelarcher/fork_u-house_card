@@ -2,22 +2,33 @@ type: custom:fork-u-house-card
 layout_options:
   grid_columns: 4    # wider card in sections view (default: 2)
   grid_rows: auto    # auto height
-# performance: auto  # "auto" (default) detects slow devices and disables blur
-                     # "low" forces low-perf mode (no backdrop blur)
-                     # "high" forces full effects even on slow devices
-
-# Per-user performance overrides — useful for low-spec wall tablets/fridge displays
-# that share a dashboard with faster devices. Match by HA user name (case-insensitive)
-# or user id. First matching profile wins. Each flag is independent — set only
-# what you need.
+# performance accepts either a string (shorthand) or an object (fine-grained):
 #
+#   performance: auto    # "auto" (default) detects slow devices, "low" forces, "high" disables
+#
+#   performance:
+#     mode: low                    # auto | low | high (CSS + 15fps cap)
+#     weather_effects: false       # skip canvas weather animation entirely
+#     energy_flow: false           # skip energy flow render
+#     update_throttle: 10          # debounce HA state updates to once / N seconds
+#
+# Per-user overrides via performance_profiles — first matching profile wins.
+# Match against hass.user.name (case-insensitive) or user.id. Only fields you
+# explicitly set on a profile override the global defaults.
+#
+# Pattern: default-deny globally, allow-list your own devices.
+# performance:
+#   mode: low
+#   weather_effects: false
+#   energy_flow: false
+#   update_throttle: 10
 # performance_profiles:
-#   - users: ["Fridge", "Hallway Tablet"]   # match this._hass.user.name or .id
-#     mode: low                             # apply low-perf CSS + 15fps cap
-#     weather_effects: false                # skip canvas weather animation entirely
-#     energy_flow: false                    # skip energy flow render
-#     update_throttle: 5                    # debounce HA state updates to once / N seconds
-language: pl
+#   - users: ["nigel", "mel"]      # my phone/laptop get full effects
+#     mode: high
+#     weather_effects: true
+#     energy_flow: true
+#     update_throttle: 0
+language: en
 image_path: /local/house-images/
 image: /local/community/fork_u-house_card/images/
 weather_entity: weather.forecast_home

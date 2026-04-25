@@ -1,26 +1,58 @@
 # Performance Optimisation
 
-## Current: `performance` config
+## `performance` config
+
+Two forms — string (legacy shorthand) or object (fine-grained):
 
 ```yaml
+# Shorthand — only sets mode, all other features stay on
 performance: auto   # default — auto-detects slow devices
 performance: low    # force low-perf mode
 performance: high   # force full effects
+
+# Object form — full control over global defaults
+performance:
+  mode: low                  # auto | low | high
+  weather_effects: false     # skip canvas weather animation entirely
+  energy_flow: false         # skip energy flow render
+  update_throttle: 10        # debounce _updateData to once per N seconds
 ```
 
 ## Per-user overrides: `performance_profiles`
 
-Targets specific HA users (e.g. the fridge tablet) for stronger throttling
-without affecting faster devices on the same dashboard. First matching
-profile wins; flags override the global `performance:` setting.
+Symmetric with the global object — same fields, plus `users:` to match
+against. First matching profile wins. Only fields you explicitly set on a
+profile override the corresponding global default; everything else inherits.
+
+Match is against `hass.user.name` (case-insensitive) or `user.id`.
+
+**Allow-list pattern (recommended for mixed-device households):** lock down
+defaults globally, opt your own devices back in.
+
+```yaml
+performance:
+  mode: low
+  weather_effects: false
+  energy_flow: false
+  update_throttle: 10
+performance_profiles:
+  - users: ["nigel", "mel"]   # full effects on my phone/laptop
+    mode: high
+    weather_effects: true
+    energy_flow: true
+    update_throttle: 0
+```
+
+**Deny-list pattern (just throttle one device):** leave defaults full,
+target the slow one.
 
 ```yaml
 performance_profiles:
-  - users: ["Fridge"]        # matches hass.user.name (case-insensitive) or user.id
-    mode: low                # same effect as performance: low
-    weather_effects: false   # skip canvas weather animation entirely (no rAF loop)
-    energy_flow: false       # skip energy flow render
-    update_throttle: 5       # debounce _updateData to once per N seconds
+  - users: ["sansung_fridge"]
+    mode: low
+    weather_effects: false
+    energy_flow: false
+    update_throttle: 5
 ```
 
 Notes:

@@ -150,28 +150,43 @@ class ForkUHouseCard extends HTMLElement {
       this._energyCacheKey = null;
       this._energyDirty = true;
       this._energyLastUpdate = null;
-      // performance: "low" forces it, "auto" (default) detects, "high" disables
-      const perfSetting = config.performance ?? 'auto';
-      this._lowPerf = perfSetting === 'low';
-      this._perfAutoDetect = perfSetting === 'auto';
+      // performance accepts either:
+      //   - string: "auto" (default) | "low" | "high"  — just sets mode
+      //   - object: { mode, weather_effects, energy_flow, update_throttle }
+      // performance_profiles[] entries override any field per HA user.
+      const perf = config.performance;
+      const perfObj = (perf && typeof perf === 'object') ? perf : { mode: perf ?? 'auto' };
+      this._globalPerf = {
+        mode: perfObj.mode ?? 'auto',
+        weatherEffects: perfObj.weather_effects !== false,
+        energyFlow: perfObj.energy_flow !== false,
+        updateThrottle: typeof perfObj.update_throttle === 'number' ? perfObj.update_throttle : 0,
+      };
+      this._lowPerf = this._globalPerf.mode === 'low';
+      this._perfAutoDetect = this._globalPerf.mode === 'auto';
       this._perfSamples = [];
       // Effective per-user perf flags — populated on first hass set when user is known
       this._perfResolved = false;
-      this._effective = { lowPerf: this._lowPerf, weatherEffects: true, energyFlow: true, updateThrottle: 0 };
+      this._effective = {
+        lowPerf: this._lowPerf,
+        weatherEffects: this._globalPerf.weatherEffects,
+        energyFlow: this._globalPerf.energyFlow,
+        updateThrottle: this._globalPerf.updateThrottle,
+      };
       this._lastUpdate = 0;
       this._updatePending = false;
       this._render();
     }
 
-    // Resolve performance_profiles against the current HA user. First profile
-    // whose `users` list matches hass.user.name (case-insensitive) or user.id
-    // wins. Flags override the global `performance:` setting.
+    // Resolve performance_profiles against the current HA user. Starts from
+    // the global `performance:` defaults; first matching profile overrides
+    // any fields it explicitly sets.
     _resolvePerformanceProfile() {
       const eff = {
-        lowPerf: this._lowPerf,
-        weatherEffects: true,
-        energyFlow: true,
-        updateThrottle: 0,
+        lowPerf: this._globalPerf.mode === 'low',
+        weatherEffects: this._globalPerf.weatherEffects,
+        energyFlow: this._globalPerf.energyFlow,
+        updateThrottle: this._globalPerf.updateThrottle,
       };
       const profiles = this._config.performance_profiles;
       const user = this._hass?.user;
@@ -183,7 +198,9 @@ class ForkUHouseCard extends HTMLElement {
           if (!targets.includes(name) && !targets.includes(id)) continue;
           if (p.mode === 'low') { eff.lowPerf = true; this._perfAutoDetect = false; }
           if (p.mode === 'high') { eff.lowPerf = false; this._perfAutoDetect = false; }
+          if (p.weather_effects === true) eff.weatherEffects = true;
           if (p.weather_effects === false) eff.weatherEffects = false;
+          if (p.energy_flow === true) eff.energyFlow = true;
           if (p.energy_flow === false) eff.energyFlow = false;
           if (typeof p.update_throttle === 'number') eff.updateThrottle = p.update_throttle;
           break;

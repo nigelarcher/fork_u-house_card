@@ -150,17 +150,95 @@ class ForkUHouseCard extends HTMLElement {
       this._energyCacheKey = null;
       this._energyDirty = true;
       this._energyLastUpdate = null;
-      // performance: "low" forces it, "auto" (default) detects, "high" disables
-      const perfSetting = config.performance ?? 'auto';
-      this._lowPerf = perfSetting === 'low';
-      this._perfAutoDetect = perfSetting === 'auto';
+      // performance accepts either:
+      //   - string: "auto" (default) | "low" | "high"  — just sets mode
+      //   - object: { mode, weather_effects, energy_flow, update_throttle }
+      // performance_profiles[] entries override any field per HA user.
+      const perf = config.performance;
+      const perfObj = (perf && typeof perf === 'object') ? perf : { mode: perf ?? 'auto' };
+      this._globalPerf = {
+        mode: perfObj.mode ?? 'auto',
+        weatherEffects: perfObj.weather_effects !== false,
+        energyFlow: perfObj.energy_flow !== false,
+        updateThrottle: typeof perfObj.update_throttle === 'number' ? perfObj.update_throttle : 0,
+      };
+      this._lowPerf = this._globalPerf.mode === 'low';
+      this._perfAutoDetect = this._globalPerf.mode === 'auto';
       this._perfSamples = [];
+      // Effective per-user perf flags — populated on first hass set when user is known
+      this._perfResolved = false;
+      this._effective = {
+        lowPerf: this._lowPerf,
+        weatherEffects: this._globalPerf.weatherEffects,
+        energyFlow: this._globalPerf.energyFlow,
+        updateThrottle: this._globalPerf.updateThrottle,
+      };
+      this._lastUpdate = 0;
+      this._updatePending = false;
       this._render();
     }
-  
+
+    // Resolve performance_profiles against the current HA user. Starts from
+    // the global `performance:` defaults; first matching profile overrides
+    // any fields it explicitly sets.
+    _resolvePerformanceProfile() {
+      const eff = {
+        lowPerf: this._globalPerf.mode === 'low',
+        weatherEffects: this._globalPerf.weatherEffects,
+        energyFlow: this._globalPerf.energyFlow,
+        updateThrottle: this._globalPerf.updateThrottle,
+      };
+      const profiles = this._config.performance_profiles;
+      const user = this._hass?.user;
+      if (Array.isArray(profiles) && user) {
+        const name = String(user.name || '').toLowerCase();
+        const id = String(user.id || '').toLowerCase();
+        for (const p of profiles) {
+          const targets = (p.users || []).map(u => String(u).toLowerCase());
+          if (!targets.includes(name) && !targets.includes(id)) continue;
+          if (p.mode === 'low') { eff.lowPerf = true; this._perfAutoDetect = false; }
+          if (p.mode === 'high') { eff.lowPerf = false; this._perfAutoDetect = false; }
+          if (p.weather_effects === true) eff.weatherEffects = true;
+          if (p.weather_effects === false) eff.weatherEffects = false;
+          if (p.energy_flow === true) eff.energyFlow = true;
+          if (p.energy_flow === false) eff.energyFlow = false;
+          if (typeof p.update_throttle === 'number') eff.updateThrottle = p.update_throttle;
+          break;
+        }
+      }
+      this._effective = eff;
+      this._lowPerf = eff.lowPerf;
+      // Only lock the resolution once we've actually seen a user, or when
+      // there are no profiles to apply. Otherwise re-attempt next tick.
+      this._perfResolved = !!user || !Array.isArray(profiles) || profiles.length === 0;
+      const card = this.shadowRoot?.querySelector('.card');
+      if (card) card.classList.toggle('low-perf', eff.lowPerf);
+    }
+
     set hass(hass) {
       this._hass = hass;
-      this._updateData();
+      if (!this._perfResolved) this._resolvePerformanceProfile();
+
+      const throttle = this._effective.updateThrottle;
+      if (!throttle) {
+        this._updateData();
+        return;
+      }
+      // Leading + trailing debounce: run immediately if the window has elapsed,
+      // otherwise schedule one trailing update at the end of the window.
+      const now = Date.now();
+      const sinceLast = now - this._lastUpdate;
+      if (sinceLast >= throttle * 1000) {
+        this._lastUpdate = now;
+        this._updateData();
+      } else if (!this._updatePending) {
+        this._updatePending = true;
+        setTimeout(() => {
+          this._updatePending = false;
+          this._lastUpdate = Date.now();
+          this._updateData();
+        }, (throttle * 1000) - sinceLast);
+      }
     }
 
     _t(key, repl = {}) {
@@ -504,8 +582,8 @@ class ForkUHouseCard extends HTMLElement {
       this._handleDayNight();
       this._generateAIStatus(median);
   
-      // Animation Loop
-      if (!this._animationFrame && this._canvas) {
+      // Animation Loop — skipped entirely when weather_effects is disabled
+      if (!this._animationFrame && this._canvas && this._effective.weatherEffects !== false) {
         this._initStars();
         this._animate();
       }
@@ -902,6 +980,10 @@ class ForkUHouseCard extends HTMLElement {
     _updateEnergy() {
         const container = this.shadowRoot.querySelector('.energy-layer');
         if (!container) return;
+        if (this._effective?.energyFlow === false) {
+            if (container.innerHTML) container.innerHTML = '';
+            return;
+        }
         const energyCfg = this._config.energy;
         if (!energyCfg || !energyCfg.home) {
             if (container.innerHTML) container.innerHTML = '';

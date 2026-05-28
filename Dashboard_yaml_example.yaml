@@ -47,6 +47,11 @@ wind_direction_entity: sensor.home_wind_direction
 # Default: [18, 24, 30, 35]
 # temp_thresholds: [16, 22, 30, 38]
 
+# Global room badge background opacity (default: 0.75).
+# Lower values let the house image show through more — useful when you have many
+# rooms covering the building. Per-room bg_opacity overrides this.
+# room_bg_opacity: 0.4
+
 # Birthdays (MM-DD format). During xmas (Dec 1-26), the advent image takes
 # priority — Dec 23's advent image already includes girl_bday in the scene.
 birthdays:
@@ -151,6 +156,57 @@ rooms:
     x: 80
     "y": 70
     weight: 0
+
+  # ---- attribute + icons[] examples ----
+  #
+  # attribute: pull the room's primary value from an entity attribute instead
+  # of state. Lets one climate entity drive both the temperature display and
+  # the AC mode icon.
+  #
+  # icons: array of conditional icons rendered inside the badge. Each icon:
+  #   entity      (required) — HA entity to watch
+  #   attribute   (optional) — read attribute instead of state
+  #   icon        (required) — emoji or "mdi:icon-name"
+  #   icon_color  (optional) — default hex colour
+  #   states      (optional) — map of state→colour. null = ghost (greyed)
+  #   show_when   (optional) — same rule as room/alert show_when. No match = removed
+  #   label       (optional) — small text shown next to the icon
+  #
+  # bg_opacity (optional) — per-room override of room_bg_opacity (0 - 1).
+  - name: Front Room
+    entity: climate.living                    # read current_temperature from climate
+    attribute: current_temperature
+    x: 40
+    "y": 45
+    weight: 1
+    bg_opacity: 0.4                           # see-through so house shows under multiple badges
+    icons:
+      # AC mode — same entity, reads state. states map drives colour + ghost
+      - entity: climate.living
+        icon: "mdi:air-conditioner"
+        states:
+          "off": null                         # null = ghosted (low opacity + grayscale)
+          cool: "#22D3EE"
+          heat: "#FB923C"
+          heat_cool: "#A78BFA"
+          dry: "#FBBF24"
+          fan_only: "#A1A1AA"
+      # Light — removed entirely when off (show_when), coloured when on
+      - entity: light.front_room
+        icon: "mdi:lightbulb"
+        show_when: "on"
+        icon_color: "#FBBF24"
+      # Presence — only visible when motion detected
+      - entity: binary_sensor.front_room_motion
+        icon: "mdi:motion-sensor"
+        show_when: "on"
+        icon_color: "#34D399"
+      # Damper — driven by an attribute on a cover entity
+      - entity: cover.living_zone_position
+        attribute: current_position
+        icon: "mdi:valve"
+        show_when: { gt: 0 }
+        icon_color: "#22D3EE"
 
 # ---- Icon Reference ----
 # Icons can be emoji (copy-paste) OR Home Assistant mdi: icons (type the name).

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(npm test:*)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "mcp__home-assistant__GetLiveContext"
     ]
   }
 }

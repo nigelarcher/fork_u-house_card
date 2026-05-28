@@ -560,8 +560,8 @@ class ForkUHouseCard extends HTMLElement {
 
       // Rooms & Median
       const roomsData = this._config.rooms.map(r => {
-        const s = this._hass.states[r.entity];
-        const v = s ? parseFloat(s.state) : null;
+        const raw = this._resolveValue(r.entity, r.attribute);
+        const v = raw !== null && raw !== undefined ? parseFloat(raw) : null;
         return { ...r, value: v, valid: v !== null && !isNaN(v) };
       });
       
@@ -589,6 +589,21 @@ class ForkUHouseCard extends HTMLElement {
       }
     }
   
+    _resolveValue(entity, attribute) {
+        // Reads either the entity's state or a specific attribute.
+        //   _resolveValue("climate.living")                       → "heat_cool"
+        //   _resolveValue("climate.living", "current_temperature") → 23.6
+        // Returns null when the entity is missing or the attribute is undefined.
+        if (!entity || !this._hass) return null;
+        const s = this._hass.states[entity];
+        if (!s) return null;
+        if (attribute) {
+            const v = s.attributes ? s.attributes[attribute] : undefined;
+            return v === undefined ? null : v;
+        }
+        return s.state;
+    }
+
     _evaluateVisibility(rule, value) {
         // Supports: number, string, array, or object with operator
         // show_when: 42              — exact match
@@ -640,12 +655,13 @@ class ForkUHouseCard extends HTMLElement {
     _updateBadges(rooms) {
       const container = this.shadowRoot.querySelector('.badges-layer');
       if (!container) return;
+      const globalOpacity = this._config.room_bg_opacity;
       const html = rooms.map(room => {
         if (!room.valid) return '';
         // Visibility check (in edit mode, show hidden items at reduced opacity)
         let editHidden = false;
         if (room.show_when !== undefined) {
-            const state = this._hass.states[room.entity]?.state;
+            const state = this._resolveValue(room.entity, room.attribute);
             if (!this._evaluateVisibility(room.show_when, state)) {
                 if (!this._editMode) return '';
                 editHidden = true;
@@ -655,16 +671,76 @@ class ForkUHouseCard extends HTMLElement {
         const unit = room.unit ?? '°';
         const { colorClass, colorStyle } = this._getBadgeColor(room);
         const editStyle = editHidden ? ' opacity: 0.3; outline: 1px dashed rgba(255,255,255,0.3);' : '';
+        const opacity = room.bg_opacity ?? globalOpacity;
+        const bgStyle = (opacity !== undefined && opacity !== null)
+            ? ` background: rgba(20, 20, 25, ${opacity});`
+            : '';
+        const icons = this._renderRoomIcons(room);
         return `
-          <div class="badge ${colorClass}" style="top: ${top}%; left: ${left}%;${editStyle}">
+          <div class="badge ${colorClass}" style="top: ${top}%; left: ${left}%;${editStyle}${bgStyle}">
             <div class="badge-dot" ${colorStyle}></div>
             <div class="badge-content">
               <span class="badge-name">${room.name}</span>
               <span class="badge-val">${room.value.toFixed(1)}${unit}</span>
             </div>
+            ${icons}
           </div>`;
       }).join('');
       if (container.innerHTML !== html) container.innerHTML = html;
+    }
+
+    _renderRoomIcons(room) {
+        // Renders the per-room icon strip inside the badge.
+        // Each icon config supports:
+        //   entity        — HA entity (required)
+        //   attribute     — read attribute instead of state (optional)
+        //   icon          — emoji or "mdi:icon-name" (required)
+        //   icon_color    — default colour when no states map matches (optional)
+        //   states        — map of state→colour. null colour renders ghost. (optional)
+        //   show_when     — visibility rule. When set, icon is REMOVED on no-match. (optional)
+        //   label         — small text shown to the right (optional)
+        // Resolution: show_when removes; states map colours/ghosts; defaults show.
+        const icons = room.icons;
+        if (!Array.isArray(icons) || icons.length === 0) return '';
+        const parts = icons.map(ic => {
+            if (!ic || !ic.entity || !ic.icon) return '';
+            const value = this._resolveValue(ic.entity, ic.attribute);
+
+            // show_when → removal semantics (matches alerts)
+            let editHidden = false;
+            if (ic.show_when !== undefined) {
+                if (!this._evaluateVisibility(ic.show_when, value)) {
+                    if (!this._editMode) return '';
+                    editHidden = true;
+                }
+            }
+
+            // states map → colour or ghost
+            let color = ic.icon_color || null;
+            let ghost = false;
+            if (ic.states && typeof ic.states === 'object' && value !== null) {
+                const key = String(value);
+                if (Object.prototype.hasOwnProperty.call(ic.states, key)) {
+                    const mapped = ic.states[key];
+                    if (mapped === null) {
+                        ghost = true;
+                    } else if (mapped) {
+                        color = mapped;
+                    }
+                }
+            }
+
+            const iconClass = `room-icon${ghost ? ' room-icon-ghost' : ''}${editHidden ? ' room-icon-edit-hidden' : ''}`;
+            const colorStyle = color ? ` color: ${color};` : '';
+            const iconContent = String(ic.icon).startsWith('mdi:')
+                ? `<ha-icon icon="${ic.icon}" style="--mdc-icon-size: 14px;${colorStyle}"></ha-icon>`
+                : `<span class="room-icon-glyph" style="${colorStyle}">${ic.icon}</span>`;
+            const label = ic.label ? `<span class="room-icon-label">${ic.label}</span>` : '';
+            return `<span class="${iconClass}">${iconContent}${label}</span>`;
+        });
+        const inner = parts.join('');
+        if (!inner) return '';
+        return `<div class="room-icons">${inner}</div>`;
     }
 
     _getBadgeColor(room) {
@@ -1459,6 +1535,12 @@ class ForkUHouseCard extends HTMLElement {
           .badge-content { display: flex; flex-direction: column; line-height: 1; }
           .badge-name { font-size: 0.55rem; color: #aaa; text-transform: uppercase; margin-bottom: 2px; }
           .badge-val { font-size: 0.80rem; font-weight: 700; color: #fff; }
+          .room-icons { display: flex; align-items: center; gap: 6px; margin-left: 4px; padding-left: 6px; border-left: 1px solid rgba(255,255,255,0.15); }
+          .room-icon { display: inline-flex; align-items: center; gap: 3px; color: #ccc; }
+          .room-icon-glyph { font-size: 0.75rem; line-height: 1; }
+          .room-icon-label { font-size: 0.5rem; color: #aaa; text-transform: uppercase; }
+          .room-icon-ghost { opacity: 0.35; filter: grayscale(1); }
+          .room-icon-edit-hidden { opacity: 0.3; outline: 1px dashed rgba(255,255,255,0.3); }
 
           /* ALERT BADGES */
           .alerts-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }

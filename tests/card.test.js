@@ -262,6 +262,76 @@ describe('room badge — icons array', () => {
   });
 });
 
+describe('room badge — setpoint (set_attribute)', () => {
+  it('renders set_attribute alongside main value from same entity', () => {
+    const card = makeCard({
+      'climate.living': { state: 'heat', attributes: { current_temperature: 23.6, temperature: 21.0 } },
+    });
+    card.setConfig({
+      rooms: [{
+        name: 'Living', entity: 'climate.living',
+        attribute: 'current_temperature', set_attribute: 'temperature',
+        x: 50, y: 50,
+      }],
+    });
+    card.hass = card._hass;
+    const html = card.shadowRoot.querySelector('.badges-layer').innerHTML;
+    expect(html).toContain('23.6');
+    expect(html).toContain('badge-set');
+    expect(html).toContain('21.0');
+    expect(html).toContain('/ 21.0');
+  });
+
+  it('reads setpoint state from a separate set_entity (input_number)', () => {
+    const card = makeCard({
+      'sensor.t': { state: '23.0', attributes: {} },
+      'input_number.target': { state: '20.5', attributes: {} },
+    });
+    card.setConfig({
+      rooms: [{
+        name: 'Lounge', entity: 'sensor.t',
+        set_entity: 'input_number.target',
+        x: 50, y: 50,
+      }],
+    });
+    card.hass = card._hass;
+    const html = card.shadowRoot.querySelector('.badges-layer').innerHTML;
+    expect(html).toContain('badge-set');
+    expect(html).toContain('/ 20.5');
+  });
+
+  it('omits setpoint when set_attribute resolves to non-numeric', () => {
+    const card = makeCard({
+      'climate.living': { state: 'heat', attributes: { current_temperature: 23.0, temperature: 'auto' } },
+    });
+    card.setConfig({
+      rooms: [{
+        name: 'Living', entity: 'climate.living',
+        attribute: 'current_temperature', set_attribute: 'temperature',
+        x: 50, y: 50,
+      }],
+    });
+    card.hass = card._hass;
+    const html = card.shadowRoot.querySelector('.badges-layer').innerHTML;
+    expect(html).not.toContain('badge-set');
+  });
+
+  it('omits setpoint when set_attribute not configured', () => {
+    const card = makeCard({
+      'climate.living': { state: 'heat', attributes: { current_temperature: 23.6, temperature: 21.0 } },
+    });
+    card.setConfig({
+      rooms: [{
+        name: 'Living', entity: 'climate.living', attribute: 'current_temperature',
+        x: 50, y: 50,
+      }],
+    });
+    card.hass = card._hass;
+    const html = card.shadowRoot.querySelector('.badges-layer').innerHTML;
+    expect(html).not.toContain('badge-set');
+  });
+});
+
 describe('room badge — bg_opacity', () => {
   it('applies per-room bg_opacity as inline rgba style', () => {
     const card = makeCard({ 'sensor.t': { state: '22.0', attributes: {} } });

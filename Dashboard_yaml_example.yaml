@@ -176,6 +176,8 @@ rooms:
   - name: Front Room
     entity: climate.living                    # read current_temperature from climate
     attribute: current_temperature
+    set_attribute: temperature                # NEW: shows setpoint as "23.6° / 21°"
+    # set_entity: input_number.target_temp    # optional — defaults to room.entity
     x: 40
     "y": 45
     weight: 1

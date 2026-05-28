@@ -676,12 +676,13 @@ class ForkUHouseCard extends HTMLElement {
             ? ` background: rgba(20, 20, 25, ${opacity});`
             : '';
         const icons = this._renderRoomIcons(room);
+        const setSpan = this._renderSetpoint(room, unit);
         return `
           <div class="badge ${colorClass}" style="top: ${top}%; left: ${left}%;${editStyle}${bgStyle}">
             <div class="badge-dot" ${colorStyle}></div>
             <div class="badge-content">
               <span class="badge-name">${room.name}</span>
-              <span class="badge-val">${room.value.toFixed(1)}${unit}</span>
+              <span class="badge-val">${room.value.toFixed(1)}${unit}${setSpan}</span>
             </div>
             ${icons}
           </div>`;
@@ -741,6 +742,18 @@ class ForkUHouseCard extends HTMLElement {
         const inner = parts.join('');
         if (!inner) return '';
         return `<div class="room-icons">${inner}</div>`;
+    }
+
+    _renderSetpoint(room, unit) {
+        // Optional setpoint suffix on the badge value: "23.6° / 21°".
+        //   set_attribute — attribute to read (e.g. climate "temperature")
+        //   set_entity    — entity to read (defaults to room.entity)
+        // Either set_attribute or set_entity must be configured to render.
+        if (!room.set_attribute && !room.set_entity) return '';
+        const raw = this._resolveValue(room.set_entity || room.entity, room.set_attribute);
+        const v = raw !== null && raw !== undefined ? parseFloat(raw) : null;
+        if (v === null || isNaN(v)) return '';
+        return ` <span class="badge-set">/ ${v.toFixed(1)}${unit}</span>`;
     }
 
     _getBadgeColor(room) {
@@ -1535,6 +1548,7 @@ class ForkUHouseCard extends HTMLElement {
           .badge-content { display: flex; flex-direction: column; line-height: 1; }
           .badge-name { font-size: 0.55rem; color: #aaa; text-transform: uppercase; margin-bottom: 2px; }
           .badge-val { font-size: 0.80rem; font-weight: 700; color: #fff; }
+          .badge-set { font-size: 0.65rem; font-weight: 500; color: rgba(255,255,255,0.55); margin-left: 2px; }
           .room-icons { display: flex; align-items: center; gap: 6px; margin-left: 4px; padding-left: 6px; border-left: 1px solid rgba(255,255,255,0.15); }
           .room-icon { display: inline-flex; align-items: center; gap: 3px; color: #ccc; }
           .room-icon-glyph { font-size: 0.75rem; line-height: 1; }

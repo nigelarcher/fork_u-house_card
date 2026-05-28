@@ -332,6 +332,39 @@ describe('room badge — setpoint (set_attribute)', () => {
   });
 });
 
+describe('room badge — edge anchoring', () => {
+  it('applies badge-anchor-right when x > 70', () => {
+    const card = makeCard({ 'sensor.t': { state: '22.0', attributes: {} } });
+    card.setConfig({
+      rooms: [{ name: 'Edge', entity: 'sensor.t', x: 85, y: 50 }],
+    });
+    card.hass = card._hass;
+    const html = card.shadowRoot.querySelector('.badges-layer').innerHTML;
+    expect(html).toContain('badge-anchor-right');
+  });
+
+  it('applies badge-anchor-left when x < 30', () => {
+    const card = makeCard({ 'sensor.t': { state: '22.0', attributes: {} } });
+    card.setConfig({
+      rooms: [{ name: 'Edge', entity: 'sensor.t', x: 10, y: 50 }],
+    });
+    card.hass = card._hass;
+    const html = card.shadowRoot.querySelector('.badges-layer').innerHTML;
+    expect(html).toContain('badge-anchor-left');
+  });
+
+  it('uses default centre anchor when x is mid-range', () => {
+    const card = makeCard({ 'sensor.t': { state: '22.0', attributes: {} } });
+    card.setConfig({
+      rooms: [{ name: 'Edge', entity: 'sensor.t', x: 50, y: 50 }],
+    });
+    card.hass = card._hass;
+    const html = card.shadowRoot.querySelector('.badges-layer').innerHTML;
+    expect(html).not.toContain('badge-anchor-right');
+    expect(html).not.toContain('badge-anchor-left');
+  });
+});
+
 describe('room badge — bg_opacity', () => {
   it('applies per-room bg_opacity as inline rgba style', () => {
     const card = makeCard({ 'sensor.t': { state: '22.0', attributes: {} } });

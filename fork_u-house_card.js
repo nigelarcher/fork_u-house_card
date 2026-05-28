@@ -675,10 +675,15 @@ class ForkUHouseCard extends HTMLElement {
         const bgStyle = (opacity !== undefined && opacity !== null)
             ? ` background: rgba(20, 20, 25, ${opacity});`
             : '';
+        // Edge-anchor: centred badges past x≈70 get squashed by the right edge.
+        // Anchor right when x is high, left when low, else centred.
+        let anchorClass = '';
+        if (left > 70) anchorClass = ' badge-anchor-right';
+        else if (left < 30) anchorClass = ' badge-anchor-left';
         const icons = this._renderRoomIcons(room);
         const setSpan = this._renderSetpoint(room, unit);
         return `
-          <div class="badge ${colorClass}" style="top: ${top}%; left: ${left}%;${editStyle}${bgStyle}">
+          <div class="badge ${colorClass}${anchorClass}" style="top: ${top}%; left: ${left}%;${editStyle}${bgStyle}">
             <div class="badge-dot" ${colorStyle}></div>
             <div class="badge-content">
               <span class="badge-name">${room.name}</span>
@@ -1538,7 +1543,10 @@ class ForkUHouseCard extends HTMLElement {
               border: 1px solid rgba(255,255,255,0.15);
               box-shadow: 0 4px 8px rgba(0,0,0,0.4);
               display: flex; align-items: center; gap: 8px; pointer-events: auto;
+              white-space: nowrap;
           }
+          .badge-anchor-right { transform: translate(-100%, -50%); }
+          .badge-anchor-left  { transform: translate(0, -50%); }
           .badge-dot { width: 8px; height: 8px; border-radius: 50%; }
           .is-cold .badge-dot { background: var(--color-cold); box-shadow: 0 0 5px var(--color-cold); }
           .is-optimal .badge-dot { background: var(--color-opt); box-shadow: 0 0 5px var(--color-opt); }

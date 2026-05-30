@@ -589,6 +589,43 @@ class ForkUHouseCard extends HTMLElement {
       }
     }
   
+    _fireMoreInfo(entityId) {
+        if (!entityId) return;
+        this.dispatchEvent(new CustomEvent('hass-more-info', {
+            bubbles: true, composed: true,
+            detail: { entityId },
+        }));
+    }
+
+    _callToggle(entityId) {
+        if (!entityId || !this._hass) return;
+        this._hass.callService('homeassistant', 'toggle', { entity_id: entityId });
+    }
+
+    _handleBadgeClick(ev) {
+        // Delegated click handler on .badges-layer. Walks up to find the
+        // nearest element with data-tap-entity; reads data-tap-action.
+        const target = ev.target.closest('[data-tap-entity]');
+        if (!target) return;
+        const entityId = target.getAttribute('data-tap-entity');
+        const action = target.getAttribute('data-tap-action') || 'more-info';
+        if (action === 'none') return;
+        ev.stopPropagation();
+        if (action === 'toggle') this._callToggle(entityId);
+        else this._fireMoreInfo(entityId);
+    }
+
+    _tapAttrs(entity, tapAction) {
+        // Returns data-* attrs + class for click delegation, or '' when inert.
+        // Accepts string ("more-info" | "toggle" | "none") or undefined (default more-info).
+        const action = tapAction || 'more-info';
+        if (action === 'none' || !entity) return { attrs: '', cls: '' };
+        return {
+            attrs: ` data-tap-entity="${entity}" data-tap-action="${action}"`,
+            cls: ' tap-target',
+        };
+    }
+
     _resolveValue(entity, attribute) {
         // Reads either the entity's state or a specific attribute.
         //   _resolveValue("climate.living")                       → "heat_cool"
@@ -682,8 +719,9 @@ class ForkUHouseCard extends HTMLElement {
         else if (left < 30) anchorClass = ' badge-anchor-left';
         const icons = this._renderRoomIcons(room);
         const setSpan = this._renderSetpoint(room, unit);
+        const tap = this._tapAttrs(room.entity, room.tap_action);
         return `
-          <div class="badge ${colorClass}${anchorClass}" style="top: ${top}%; left: ${left}%;${editStyle}${bgStyle}">
+          <div class="badge ${colorClass}${anchorClass}${tap.cls}" style="top: ${top}%; left: ${left}%;${editStyle}${bgStyle}"${tap.attrs}>
             <div class="badge-dot" ${colorStyle}></div>
             <div class="badge-content">
               <span class="badge-name">${room.name}</span>
@@ -736,13 +774,14 @@ class ForkUHouseCard extends HTMLElement {
                 }
             }
 
-            const iconClass = `room-icon${ghost ? ' room-icon-ghost' : ''}${editHidden ? ' room-icon-edit-hidden' : ''}`;
+            const tap = this._tapAttrs(ic.entity, ic.tap_action);
+            const iconClass = `room-icon${ghost ? ' room-icon-ghost' : ''}${editHidden ? ' room-icon-edit-hidden' : ''}${tap.cls}`;
             const colorStyle = color ? ` color: ${color};` : '';
             const iconContent = String(ic.icon).startsWith('mdi:')
                 ? `<ha-icon icon="${ic.icon}" style="--mdc-icon-size: 14px;${colorStyle}"></ha-icon>`
                 : `<span class="room-icon-glyph" style="${colorStyle}">${ic.icon}</span>`;
             const label = ic.label ? `<span class="room-icon-label">${ic.label}</span>` : '';
-            return `<span class="${iconClass}">${iconContent}${label}</span>`;
+            return `<span class="${iconClass}"${tap.attrs}>${iconContent}${label}</span>`;
         });
         const inner = parts.join('');
         if (!inner) return '';
@@ -1547,6 +1586,10 @@ class ForkUHouseCard extends HTMLElement {
           }
           .badge-anchor-right { transform: translate(-100%, -50%); }
           .badge-anchor-left  { transform: translate(0, -50%); }
+          .badge.tap-target { cursor: pointer; transition: filter 0.15s ease; }
+          .badge.tap-target:hover { filter: brightness(1.15); }
+          .room-icon.tap-target { cursor: pointer; transition: transform 0.15s ease; }
+          .room-icon.tap-target:hover { transform: scale(1.2); }
           .badge-dot { width: 8px; height: 8px; border-radius: 50%; }
           .is-cold .badge-dot { background: var(--color-cold); box-shadow: 0 0 5px var(--color-cold); }
           .is-optimal .badge-dot { background: var(--color-opt); box-shadow: 0 0 5px var(--color-opt); }
@@ -1768,6 +1811,9 @@ class ForkUHouseCard extends HTMLElement {
       this._canvas = this.shadowRoot.getElementById('weatherCanvas');
       this._ctx = this._canvas.getContext('2d');
       setTimeout(() => this._resizeCanvas(), 100);
+      // Delegated click handler — survives innerHTML rewrites of layer children.
+      const badgesLayer = this.shadowRoot.querySelector('.badges-layer');
+      if (badgesLayer) badgesLayer.addEventListener('click', (ev) => this._handleBadgeClick(ev));
       this.connectedCallback();
     }
   

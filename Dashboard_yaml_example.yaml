@@ -171,8 +171,14 @@ rooms:
   #   states      (optional) — map of state→colour. null = ghost (greyed)
   #   show_when   (optional) — same rule as room/alert show_when. No match = removed
   #   label       (optional) — small text shown next to the icon
+  #   tap_action  (optional) — "more-info" (default), "toggle", or "none"
   #
   # bg_opacity (optional) — per-room override of room_bg_opacity (0 - 1).
+  # tap_action (optional) — click action for the room badge itself.
+  #                         "more-info" (default), "toggle", or "none".
+  #                         Click anywhere on the badge (outside an icon) fires
+  #                         the room entity's tap_action. Click an icon fires
+  #                         that icon's tap_action.
   - name: Front Room
     entity: climate.living                    # read current_temperature from climate
     attribute: current_temperature
@@ -193,16 +199,19 @@ rooms:
           heat_cool: "#A78BFA"
           dry: "#FBBF24"
           fan_only: "#A1A1AA"
-      # Light — removed entirely when off (show_when), coloured when on
+      # Light — removed entirely when off (show_when), coloured when on,
+      # click to toggle on/off
       - entity: light.front_room
         icon: "mdi:lightbulb"
         show_when: "on"
         icon_color: "#FBBF24"
-      # Presence — only visible when motion detected
+        tap_action: toggle
+      # Presence — only visible when motion detected, decorative (no click)
       - entity: binary_sensor.front_room_motion
         icon: "mdi:motion-sensor"
         show_when: "on"
         icon_color: "#34D399"
+        tap_action: none
       # Damper — driven by an attribute on a cover entity
       - entity: cover.living_zone_position
         attribute: current_position

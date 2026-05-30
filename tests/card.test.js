@@ -332,6 +332,106 @@ describe('room badge — setpoint (set_attribute)', () => {
   });
 });
 
+describe('room badge — tap_action', () => {
+  function attachCard(states) {
+    const card = makeCard(states);
+    // Need card in the DOM for hass-more-info bubbling to a listener on document.
+    document.body.appendChild(card);
+    return card;
+  }
+
+  it('fires hass-more-info on badge click by default', () => {
+    const card = attachCard({ 'climate.living': { state: 'heat', attributes: { current_temperature: 23 } } });
+    card.setConfig({
+      rooms: [{ name: 'Living', entity: 'climate.living', attribute: 'current_temperature', x: 50, y: 50 }],
+    });
+    card.hass = card._hass;
+
+    let captured = null;
+    document.addEventListener('hass-more-info', (e) => { captured = e.detail; }, { once: true });
+
+    const badge = card.shadowRoot.querySelector('.badge');
+    badge.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+    expect(captured).toEqual({ entityId: 'climate.living' });
+    document.body.removeChild(card);
+  });
+
+  it('fires hass-more-info on icon click for the icon entity (not the room)', () => {
+    const card = attachCard({
+      'climate.living': { state: 'heat', attributes: { current_temperature: 23 } },
+      'light.front_room': { state: 'on', attributes: {} },
+    });
+    card.setConfig({
+      rooms: [{
+        name: 'Living', entity: 'climate.living', attribute: 'current_temperature', x: 50, y: 50,
+        icons: [{ entity: 'light.front_room', icon: 'mdi:lightbulb', show_when: 'on' }],
+      }],
+    });
+    card.hass = card._hass;
+
+    let captured = null;
+    document.addEventListener('hass-more-info', (e) => { captured = e.detail; }, { once: true });
+
+    const icon = card.shadowRoot.querySelector('.room-icon');
+    icon.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+    expect(captured).toEqual({ entityId: 'light.front_room' });
+    document.body.removeChild(card);
+  });
+
+  it('calls homeassistant.toggle when tap_action is toggle', () => {
+    const calls = [];
+    const card = attachCard({ 'light.front_room': { state: 'off', attributes: {} } });
+    card._hass.callService = (domain, service, data) => { calls.push({ domain, service, data }); };
+    card.setConfig({
+      rooms: [{
+        name: 'Living', entity: 'sensor.dummy', x: 50, y: 50,
+        // dummy sensor so the room renders
+        icons: [{ entity: 'light.front_room', icon: 'mdi:lightbulb', tap_action: 'toggle' }],
+      }],
+    });
+    card._hass.states['sensor.dummy'] = { state: '22.0', attributes: {} };
+    card.hass = card._hass;
+
+    const icon = card.shadowRoot.querySelector('.room-icon');
+    icon.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+    expect(calls).toEqual([{ domain: 'homeassistant', service: 'toggle', data: { entity_id: 'light.front_room' } }]);
+    document.body.removeChild(card);
+  });
+
+  it('does nothing when tap_action is none', () => {
+    const card = attachCard({
+      'sensor.t': { state: '22.0', attributes: {} },
+      'binary_sensor.motion': { state: 'on', attributes: {} },
+    });
+    card.setConfig({
+      rooms: [{
+        name: 'Living', entity: 'sensor.t', x: 50, y: 50, tap_action: 'none',
+        icons: [{ entity: 'binary_sensor.motion', icon: 'mdi:motion-sensor', tap_action: 'none' }],
+      }],
+    });
+    card.hass = card._hass;
+
+    let captured = null;
+    const handler = (e) => { captured = e.detail; };
+    document.addEventListener('hass-more-info', handler);
+
+    const badge = card.shadowRoot.querySelector('.badge');
+    badge.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    const icon = card.shadowRoot.querySelector('.room-icon');
+    icon.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+    expect(captured).toBeNull();
+    expect(card.shadowRoot.querySelector('.badge').classList.contains('tap-target')).toBe(false);
+    expect(card.shadowRoot.querySelector('.room-icon').classList.contains('tap-target')).toBe(false);
+
+    document.removeEventListener('hass-more-info', handler);
+    document.body.removeChild(card);
+  });
+});
+
 describe('room badge — edge anchoring', () => {
   it('applies badge-anchor-right when x > 70', () => {
     const card = makeCard({ 'sensor.t': { state: '22.0', attributes: {} } });

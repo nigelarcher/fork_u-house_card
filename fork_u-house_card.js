@@ -434,14 +434,16 @@ class ForkUHouseCard extends HTMLElement {
             return `${path}themed_environment_day_${timeOfDay}.png`;
         }
 
-        // State of Origin (3 games in Jun-Jul, approximate: show for June Wed nights)
-        // Games are typically Wed nights in June/early July
+        // State of Origin — explicit dates per year. NRL schedule varies too
+        // much for a heuristic. Add the next season's three dates each year.
+        // Format: "MM-DD" strings. Source: nrl.com/state-of-origin
         {
-            const sooGame1 = this._getNthDayOfMonth(year, 6, 3, 1); // 1st Wed June
-            const sooGame2 = this._getNthDayOfMonth(year, 6, 3, 3); // 3rd Wed June
-            const sooGame3 = this._getNthDayOfMonth(year, 7, 3, 2); // 2nd Wed July
-            if ((month === 6 && (day === sooGame1 || day === sooGame2)) ||
-                (month === 7 && day === sooGame3)) {
+            const sooSchedule = {
+                2026: ['05-27', '06-17', '07-08'],
+            };
+            const mmdd = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dates = sooSchedule[year];
+            if (dates && dates.includes(mmdd)) {
                 return `${path}themed_state_of_origin_${timeOfDay}.png`;
             }
         }

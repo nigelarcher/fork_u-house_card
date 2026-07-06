@@ -382,3 +382,9 @@ For automated generation using **Gemini 3 Pro** locally, use the `image_generati
 ![ang3](https://github.com/user-attachments/assets/ccdf5ff7-f45f-4761-a081-9e5d279f9381)
 ![ang2](https://github.com/user-attachments/assets/02c2b669-5126-41c8-9b81-3aa998973e4f)
 ![ang1](https://github.com/user-attachments/assets/30630e89-f732-4a04-8e5a-631dcc8be960)
+
+## License
+
+Licensed under the [MIT License](LICENSE).
+
+This project is a fork of the U-House Card originally created by Silas Mariusz Grzybacz.

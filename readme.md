@@ -32,6 +32,7 @@ An advanced, glassmorphism-styled Home Assistant Lovelace card designed for moni
 * **Day/Night Cycle:** The house image dims automatically at night to match your dashboard's theme.
 * **Gaming Ambient Mode:** A toggleable immersive mode that overlays soft, floating ambient lights (Magenta/Cyan/Purple) over the house image.
 * **Room Badges:** Positionable badges for rooms/sensors overlaid on your house image. Supports custom units and colour thresholds.
+* **Layer Toggle Buttons:** An optional on-card button cluster (**All / Rooms / Energy** by default) that hides overlay groups so the house background image can shine through. Position is configurable and choices can be remembered across reloads.
 * **Themed Days:** Automatic themed images for holidays (Christmas, Easter, Halloween, ANZAC Day, AFL Grand Final, Melbourne Cup, and more).
 * **Christmas Calendar:** Unique daily scenes for Dec 1-26, alternating traditional/Australian style.
 * **Multi-language:** Built-in support for **English** and **Polish** (configurable).
@@ -220,6 +221,48 @@ The `show_when` option controls when a badge, alert, or sprinkler is visible. It
 | Combined | `show_when: { gt: 0, lt: 100 }` | All conditions must be true |
 
 Omit `show_when` for always-visible badges. Alerts and sprinklers default to `show_when: "on"` if not specified.
+
+## Layer Toggle Buttons
+
+A small button cluster overlaid on the card that hides/shows overlay groups on demand — so you can clear the clutter and let the house background image shine. Add a `layer_toggle:` block to enable it (omit it entirely to keep the card as-is).
+
+```yaml
+layer_toggle:
+  position: top-right          # or explicit x/y percentages below
+  buttons: [all, rooms, energy]
+```
+
+The **All** button is a master hide-all / show-all. **Rooms** toggles the temperature badges, **Energy** toggles the energy-flow overlay. A button is highlighted while its layer(s) are visible.
+
+### Options
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `position` | `top-right` | Corner: `top-left`, `top-right`, `bottom-left`, `bottom-right` |
+| `margin` | `8` | Pixel inset from the chosen corner |
+| `x`, `y` | - | Explicit position as % (0-100). Overrides `position`; anchors the cluster's top-left |
+| `buttons` | `[all, rooms, energy]` | List of buttons (see below) |
+| `all_layers` | `[rooms, energy, alerts, bins, sprinklers]` | Which groups the **All** button controls |
+| `hidden_by_default` | - | Groups hidden on first load until toggled |
+| `icons` | `true` | Show the small emoji glyph on each button |
+| `id` | - | Set to remember the user's choices across reloads (localStorage). Omit for no persistence |
+| `remember` | `true` | Set `false` to disable persistence even when `id` is set |
+
+### Buttons
+
+Each entry is either a **keyword** or a **custom object**.
+
+Keywords: `all`, `rooms`, `energy`, `alerts`, `bins`, `sprinklers`, `footer`, `weather`.
+
+```yaml
+buttons:
+  - all
+  - rooms
+  - energy
+  - { label: "Info", layers: [alerts, energy], icon: "ℹ️" }   # custom multi-layer button
+```
+
+A custom button toggles all of its `layers` together (hide the set if any is showing, otherwise reveal it).
 
 ## Energy Flow Overlay
 

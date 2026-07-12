@@ -52,6 +52,35 @@ wind_direction_entity: sensor.home_wind_direction
 # rooms covering the building. Per-room bg_opacity overrides this.
 # room_bg_opacity: 0.4
 
+# ---- Layer toggle buttons ----
+# A small on-card button cluster that hides/shows overlay groups so the house
+# background image can "shine". Omit the whole block to disable it.
+# layer_toggle:
+#   # Position: a corner keyword, or explicit x/y percentages (x/y win if set).
+#   position: top-right        # top-left | top-right | bottom-left | bottom-right
+#   margin: 8                  # px inset from the corner (default 8)
+#   # x: 82                    # alternative: % from left  (anchors cluster top-left)
+#   # y: 6                     # alternative: % from top
+#   icons: true                # show the little emoji glyphs on buttons (default true)
+#
+#   # Buttons to show. Default when omitted: [all, rooms, energy].
+#   # Built-in keywords: all, rooms, energy, alerts, bins, sprinklers, footer, weather.
+#   #   "all" is a master hide-all/show-all for the groups in `all_layers` below.
+#   buttons: [all, rooms, energy]
+#   # Custom button hiding several layers at once:
+#   #   - { label: "Info", layers: [alerts, energy], icon: "ℹ️" }
+#
+#   # Which groups the "All" button controls. Footer + weather are left on by
+#   # default so the scene keeps its status text and ambience.
+#   all_layers: [rooms, energy, alerts, bins, sprinklers]
+#
+#   # Groups hidden on first load (until the user toggles them).
+#   # hidden_by_default: [energy]
+#
+#   # Give an id to remember the user's choices across reloads (localStorage).
+#   # Omit for no persistence. remember: false also disables it.
+#   # id: main_house
+
 # Birthdays (MM-DD format). During xmas (Dec 1-26), the advent image takes
 # priority — Dec 23's advent image already includes girl_bday in the scene.
 birthdays:

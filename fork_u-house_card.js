@@ -144,6 +144,7 @@ class ForkUHouseCard extends HTMLElement {
       this._config = config;
       this._lang = config.language || 'en';
       this._editMode = false;
+      this._hiddenLayers = null; // re-init from persistence / hidden_by_default on next render
       // Reset energy state on config change
       this._energyPrefsFetched = false;
       this._energyPrefs = null;
@@ -626,6 +627,140 @@ class ForkUHouseCard extends HTMLElement {
             attrs: ` data-tap-entity="${entity}" data-tap-action="${action}"`,
             cls: ' tap-target',
         };
+    }
+
+    // --- LAYER TOGGLE ---
+    // Small button cluster that hides/shows overlay groups so the background
+    // image can shine through. Enabled via `layer_toggle:` in config.
+
+    // Map of toggle-able group name -> CSS selectors of the layer containers.
+    _layerGroups() {
+        return {
+            rooms:      ['.badges-layer'],
+            energy:     ['.energy-layer'],
+            alerts:     ['.alerts-layer'],
+            bins:       ['.bins-layer'],
+            sprinklers: ['.sprinklers-layer'],
+            footer:     ['.footer'],
+            weather:    ['#weatherCanvas'],
+        };
+    }
+
+    // Which groups the "All" button (and hide-all) acts on. Weather + footer
+    // are left on by default so the scene keeps its ambience; override with
+    // layer_toggle.all_layers.
+    _allToggleGroups() {
+        const cfg = this._config.layer_toggle || {};
+        if (Array.isArray(cfg.all_layers)) return cfg.all_layers;
+        return ['rooms', 'energy', 'alerts', 'bins', 'sprinklers'];
+    }
+
+    // Normalise config.layer_toggle.buttons into { label, glyph, groups }.
+    // groups === null means the button targets every group in _allToggleGroups().
+    _layerToggleButtons() {
+        const cfg = this._config.layer_toggle;
+        if (!cfg) return [];
+        const LABELS = { all: 'All', rooms: 'Rooms', energy: 'Energy', alerts: 'Alerts', bins: 'Bins', sprinklers: 'Sprinklers', footer: 'Status', weather: 'Weather' };
+        const GLYPHS = { all: '✦', rooms: '🌡️', energy: '⚡', alerts: '⚠️', bins: '🗑️', sprinklers: '💧', footer: '💬', weather: '☁️' };
+        let btns = cfg.buttons;
+        if (!Array.isArray(btns) || btns.length === 0) btns = ['all', 'rooms', 'energy'];
+        return btns.map(b => {
+            if (typeof b === 'string') {
+                return { label: LABELS[b] ?? b, glyph: cfg.icons === false ? '' : (GLYPHS[b] ?? ''), groups: b === 'all' ? null : [b] };
+            }
+            const groups = b.all ? null : (Array.isArray(b.layers) ? b.layers : (b.layer ? [b.layer] : null));
+            return { label: b.label ?? '', glyph: b.icon ?? '', groups };
+        });
+    }
+
+    _layerStorageKey() {
+        const cfg = this._config.layer_toggle || {};
+        if (cfg.remember === false) return null;
+        const id = cfg.id || cfg.storage_key;
+        return id ? `fu-house-layers:${id}` : null; // persistence is opt-in via id
+    }
+
+    _getHiddenLayers() {
+        if (!this._hiddenLayers) {
+            this._hiddenLayers = new Set();
+            const cfg = this._config.layer_toggle || {};
+            let loaded = null;
+            const key = this._layerStorageKey();
+            if (key) { try { loaded = JSON.parse(localStorage.getItem(key)); } catch (e) {} }
+            if (Array.isArray(loaded)) loaded.forEach(g => this._hiddenLayers.add(g));
+            else if (Array.isArray(cfg.hidden_by_default)) cfg.hidden_by_default.forEach(g => this._hiddenLayers.add(g));
+        }
+        return this._hiddenLayers;
+    }
+
+    _persistHidden() {
+        const key = this._layerStorageKey();
+        if (!key) return;
+        try { localStorage.setItem(key, JSON.stringify([...this._hiddenLayers])); } catch (e) {}
+    }
+
+    _renderLayerToggle() {
+        const cfg = this._config.layer_toggle;
+        if (!cfg) return '';
+        const buttons = this._layerToggleButtons();
+        if (!buttons.length) return '';
+
+        // Positioning: explicit x/y percentages win; otherwise a corner keyword.
+        let style;
+        if (cfg.x !== undefined || cfg.y !== undefined) {
+            style = `left:${cfg.x ?? 50}%; top:${cfg.y ?? 5}%;`;
+        } else {
+            const m = cfg.margin ?? 8;
+            const corners = {
+                'top-left':     `top:${m}px; left:${m}px;`,
+                'top-right':    `top:${m}px; right:${m}px;`,
+                'bottom-left':  `bottom:${m}px; left:${m}px;`,
+                'bottom-right': `bottom:${m}px; right:${m}px;`,
+            };
+            style = corners[cfg.position] || corners['top-right'];
+        }
+
+        const html = buttons.map(b => {
+            const g = b.groups === null ? 'all' : b.groups.join(',');
+            const glyph = b.glyph ? `<span class="lt-glyph">${b.glyph}</span>` : '';
+            const label = b.label ? `<span>${b.label}</span>` : '';
+            return `<button type="button" data-lt-groups="${g}">${glyph}${label}</button>`;
+        }).join('');
+        return `<div class="layer-toggle" style="${style}">${html}</div>`;
+    }
+
+    _applyLayerVisibility() {
+        if (!this.shadowRoot) return;
+        const groups = this._layerGroups();
+        const hidden = this._getHiddenLayers();
+        Object.keys(groups).forEach(g => {
+            const isHidden = hidden.has(g);
+            groups[g].forEach(sel => {
+                const el = this.shadowRoot.querySelector(sel);
+                if (el) el.classList.toggle('fu-layer-hidden', isHidden);
+            });
+        });
+        // Button is "active" (highlighted) when any of its groups is visible.
+        this.shadowRoot.querySelectorAll('.layer-toggle button').forEach(btn => {
+            const g = btn.getAttribute('data-lt-groups');
+            const list = g === 'all' ? this._allToggleGroups() : g.split(',');
+            btn.classList.toggle('active', list.some(x => !hidden.has(x)));
+        });
+    }
+
+    _handleLayerToggle(ev) {
+        const btn = ev.target.closest('button[data-lt-groups]');
+        if (!btn) return;
+        ev.stopPropagation();
+        const g = btn.getAttribute('data-lt-groups');
+        const list = g === 'all' ? this._allToggleGroups() : g.split(',');
+        const hidden = this._getHiddenLayers();
+        // Unit toggle: if anything in the button's set is visible, hide the
+        // whole set; otherwise reveal it all.
+        const anyVisible = list.some(x => !hidden.has(x));
+        list.forEach(x => { if (anyVisible) hidden.add(x); else hidden.delete(x); });
+        this._persistHidden();
+        this._applyLayerVisibility();
     }
 
     _resolveValue(entity, attribute) {
@@ -1730,7 +1865,7 @@ class ForkUHouseCard extends HTMLElement {
               position: absolute; bottom: 0; left: 0; width: 100%; z-index: 3;
               background: rgba(10, 10, 15, 0.25); backdrop-filter: blur(15px);
               border-top: 1px solid rgba(255,255,255,0.05); padding: 12px 16px;
-              display: flex; align-items: center; gap: 12px; box-sizing: border-box; transition: background 0.3s;
+              display: flex; align-items: center; gap: 12px; box-sizing: border-box; transition: background 0.3s, opacity 0.35s ease;
               min-height: 60px; /* Space for multi-line text */
           }
           .footer[data-status="warn"] { background: rgba(80, 50, 10, 0.65); border-top-color: var(--color-warm); }
@@ -1781,7 +1916,37 @@ class ForkUHouseCard extends HTMLElement {
               */
           }
 
+          /* LAYER TOGGLE CONTROLS — hide overlay groups so the background shines */
+          .badges-layer, .alerts-layer, .sprinklers-layer, .bins-layer, .energy-layer, #weatherCanvas {
+              transition: opacity 0.35s ease;
+          }
+          .fu-layer-hidden { opacity: 0 !important; }
+          .fu-layer-hidden, .fu-layer-hidden * { pointer-events: none !important; }
+          .layer-toggle {
+              position: absolute; z-index: 3; display: flex; gap: 4px; flex-wrap: wrap;
+              pointer-events: auto;
+          }
+          .layer-toggle button {
+              font-family: inherit; font-size: 0.55rem; font-weight: 700;
+              text-transform: uppercase; letter-spacing: 0.5px;
+              color: rgba(255,255,255,0.55);
+              background: rgba(20, 20, 25, 0.6);
+              backdrop-filter: blur(8px);
+              border: 1px solid rgba(255,255,255,0.15);
+              box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+              padding: 4px 9px; border-radius: 12px; cursor: pointer;
+              display: flex; align-items: center; gap: 4px;
+              transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+          }
+          .layer-toggle button:hover { color: #fff; border-color: rgba(255,255,255,0.35); }
+          .layer-toggle button.active {
+              color: #fff; background: rgba(52,211,153,0.28); border-color: rgba(52,211,153,0.55);
+          }
+          .layer-toggle .lt-glyph { font-size: 0.7rem; }
+
           /* LOW PERFORMANCE MODE — disable expensive backdrop-filter blur */
+          .card.low-perf .layer-toggle button { backdrop-filter: none; background: rgba(20, 20, 25, 0.9); }
+          .card.low-perf .layer-toggle button.active { background: rgba(52,211,153,0.4); }
           .card.low-perf .badge { backdrop-filter: none; background: rgba(20, 20, 25, 0.9); }
           .card.low-perf .alert-label { backdrop-filter: none; background: rgba(20, 20, 25, 0.9); }
           .card.low-perf .footer { backdrop-filter: none; background: rgba(10, 10, 15, 0.85); }
@@ -1808,6 +1973,7 @@ class ForkUHouseCard extends HTMLElement {
               <div class="median-pill">Dom: --</div>
               <div class="footer-content">${this._t('loading')}</div>
           </div>
+          ${this._renderLayerToggle()}
         </div>
       `;
       this._canvas = this.shadowRoot.getElementById('weatherCanvas');
@@ -1816,6 +1982,9 @@ class ForkUHouseCard extends HTMLElement {
       // Delegated click handler — survives innerHTML rewrites of layer children.
       const badgesLayer = this.shadowRoot.querySelector('.badges-layer');
       if (badgesLayer) badgesLayer.addEventListener('click', (ev) => this._handleBadgeClick(ev));
+      const toggleBar = this.shadowRoot.querySelector('.layer-toggle');
+      if (toggleBar) toggleBar.addEventListener('click', (ev) => this._handleLayerToggle(ev));
+      this._applyLayerVisibility();
       this.connectedCallback();
     }
   

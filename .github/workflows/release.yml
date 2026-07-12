@@ -18,9 +18,10 @@ jobs:
   release:
     needs: test
     runs-on: ubuntu-latest
-    # Skip the auto-commit loop — when the release job pushes the bumped
-    # hacs.json back to main it uses [skip ci] in the message, but belt &
-    # braces: also skip if the commit message already contains it.
+    # Versioning is handled by bump.yml on the PR branch, so main only ever
+    # tags + releases the version already in package.json — no push to the
+    # protected main branch. The [skip ci] guard just avoids reacting to the
+    # bot's own bump commits.
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
     steps:
       - name: Checkout
@@ -53,20 +54,13 @@ jobs:
           set -e
 
           if [ "$IS_MAIN" = "true" ]; then
-            # Main branch: check if v{current} tag already exists.
-            #  - not exists → user manually bumped minor/major → release as-is
-            #  - exists     → auto-bump patch
-            if git rev-parse "v$CURRENT" >/dev/null 2>&1; then
-              IFS='.' read -r MAJ MIN PAT <<< "$CURRENT"
-              PAT=$((PAT + 1))
-              NEW="$MAJ.$MIN.$PAT"
-              echo "Tag v$CURRENT exists → auto-bumping patch to $NEW"
-              echo "bump=true" >> "$GITHUB_OUTPUT"
-            else
-              NEW="$CURRENT"
-              echo "Tag v$CURRENT does not exist → releasing as-is (manual bump)"
-              echo "bump=false" >> "$GITHUB_OUTPUT"
-            fi
+            # Main branch: release whatever version is in package.json.
+            # bump.yml already set it on the PR branch, so if v{current} does
+            # not yet exist we tag + release it; if it does, the next step
+            # skips gracefully (someone merged without a bump).
+            NEW="$CURRENT"
+            echo "Main release target: v$NEW"
+            echo "bump=false" >> "$GITHUB_OUTPUT"
             echo "tag=v$NEW" >> "$GITHUB_OUTPUT"
             echo "version=$NEW" >> "$GITHUB_OUTPUT"
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
@@ -88,27 +82,9 @@ jobs:
           TAG: ${{ steps.release.outputs.tag }}
         run: |
           if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "::warning::Tag $TAG already exists — skipping release"
+            echo "::warning::Tag $TAG already exists — nothing to release. Bump 'version' in package.json (bump.yml does this automatically on your PR)."
             echo "SKIP=true" >> "$GITHUB_ENV"
           fi
-
-      - name: Bump package.json and commit (main only, when auto-bumping)
-        if: env.SKIP != 'true' && steps.release.outputs.bump == 'true'
-        env:
-          NEW_VERSION: ${{ steps.release.outputs.version }}
-          TAG: ${{ steps.release.outputs.tag }}
-        run: |
-          set -e
-          jq --arg v "$NEW_VERSION" '.version = $v' package.json > package.json.tmp
-          mv package.json.tmp package.json
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
-          git tag "$TAG"
-          git push origin HEAD:main
-          git push origin "$TAG"
 
       - name: Tag existing commit (main, manual bump)
         if: env.SKIP != 'true' && steps.release.outputs.bump == 'false' && github.ref == 'refs/heads/main'

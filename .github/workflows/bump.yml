@@ -1,0 +1,74 @@
+name: Auto-bump version on PR
+
+# Bumps package.json on the PR's own branch (not main) so the version is
+# already correct by the time the PR merges. Feature branches aren't
+# protected, so github-actions[bot] can push here — which lets the Release
+# workflow on main get away with only tagging (no push to protected main).
+#
+# Default: patch bump beyond the latest released v*.*.* tag.
+# Manual override: set a higher version in package.json in your PR (e.g. a
+# minor/major bump) and this leaves it untouched.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bump-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    # Skip PRs from forks — they get a read-only token and can't push back.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute and apply version bump
+        run: |
+          set -e
+          CURRENT=$(jq -r .version package.json)
+
+          # Latest released version = highest plain v*.*.* tag (ignores the
+          # per-branch pre-release tags like v0.1.0-feature-abc123).
+          LATEST=$(git tag -l 'v[0-9]*' | sed 's/^v//' \
+                   | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          LATEST=${LATEST:-0.0.0}
+
+          IFS='.' read -r LMAJ LMIN LPAT <<< "$LATEST"
+          NEXT="$LMAJ.$LMIN.$((LPAT + 1))"
+
+          # If package.json is already ahead of the latest release, respect it
+          # (manual minor/major bump). Otherwise target the next patch.
+          HIGHEST=$(printf '%s\n%s\n' "$CURRENT" "$LATEST" | sort -V | tail -1)
+          if [ "$HIGHEST" = "$CURRENT" ] && [ "$CURRENT" != "$LATEST" ]; then
+            echo "package.json ($CURRENT) is already ahead of latest release ($LATEST) — keeping it."
+            TARGET="$CURRENT"
+          else
+            TARGET="$NEXT"
+          fi
+
+          if [ "$CURRENT" = "$TARGET" ]; then
+            echo "Version already at $TARGET — nothing to do."
+            exit 0
+          fi
+
+          echo "Bumping package.json: $CURRENT -> $TARGET"
+          jq --arg v "$TARGET" '.version = $v' package.json > package.json.tmp
+          mv package.json.tmp package.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore: bump version to $TARGET [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"

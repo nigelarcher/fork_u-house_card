@@ -1,8 +1,8 @@
 {
   "name": "fork-u-house-card",
   "private": true,
-  "version": "0.1.1",
-  "description": "Dev tooling for Fork U-House Card (tests only — the card itself is a single-file distribution). The version field here is the release source of truth, read by .github/workflows/release.yml.",
+  "version": "0.1.2",
+  "description": "Dev tooling for Fork U-House Card (tests only — the card itself is a single-file distribution). The version field here is the release source of truth: bump.yml auto-bumps it on each PR; release.yml tags + publishes it on merge to main.",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest"
